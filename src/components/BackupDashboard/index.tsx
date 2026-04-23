@@ -1,52 +1,78 @@
-import './index.scss'
-
 import type { I18n } from '@payloadcms/translations'
+
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
+
+import type { BackupPluginOptions } from '../../types.js'
+
+import { listBackups, resolveBackupListToken } from '../../core/backup.js'
 import {
   getBackupSortTimeMs,
   getCurrentDbName,
   getCurrentHostname,
+  isUserAllowedByEnvRoles,
   transformBlobName,
 } from '../../utils/index.js'
-import { listBackups } from '../../core/backup.js'
-import { getResolvedCronBackupSettings, resolveBackupBlobToken } from '../../core/backupSettings.js'
+import { backupDashboardInlineCss } from './backupDashboardInlineCss.js'
 import { BackupListCollapsible, BackupSettingsModal, ManualBackupDialog } from './index.client.js'
-import type { BackupPluginOptions } from '../../types.js'
 
 interface BackupDashboardProps {
-  user: Record<string, unknown> | null
   i18n: I18n
+  user: null | Record<string, unknown>
 }
 
 function defaultIsHidden(
-  user: Record<string, unknown> | null,
+  user: null | Record<string, unknown>,
   access?: BackupPluginOptions['access'],
 ): boolean {
-  if (!user) return true
-  if (access) return !access(user)
-  const roles = user.roles as Array<string | { slug?: string }> | undefined
-  if (!roles) return true
-  return !roles.some((role) =>
-    typeof role === 'string' ? role === 'admin' : role?.slug === 'admin',
-  )
+  if (!user) {
+    return true
+  }
+  if (access) {
+    return !access(user)
+  }
+  // Role allow-list via `PAYLOAD_BACKUP_ALLOWED_ROLES`. When unset, falls back to the
+  // historical default (admin role, or "visible" when the project has no roles field).
+  return !isUserAllowedByEnvRoles(user)
 }
 
-export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ user, i18n }) => {
+export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, user }) => {
   if (defaultIsHidden(user)) {
     return null
   }
 
-  if (!process.env.MONGODB_URI) {
-    return null
+  const hasMongoConnection =
+    Boolean(process.env.MONGODB_URI?.trim()) || Boolean(process.env.DATABASE_URL?.trim())
+  if (!hasMongoConnection) {
+    return (
+      <>
+        <style
+          dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }}
+          data-payload-backup-mongodb="1"
+          id="payload-backup-mongodb-dashboard"
+        />
+        <div className="backup-dashboard">
+          <h2>
+            Backups <span className="experimental">(experimental)</span>
+          </h2>
+          <p className="backup-dashboard__setup-hint" role="status">
+            Set <code className="backup-dashboard__setup-hint-code">MONGODB_URI</code> or{' '}
+            <code className="backup-dashboard__setup-hint-code">DATABASE_URL</code> so Payload can
+            connect to MongoDB. The in-memory dev database sets both automatically when neither is
+            provided.
+          </p>
+        </div>
+      </>
+    )
   }
 
   const payload = await getPayload({ config: configPromise })
-  const settings = await getResolvedCronBackupSettings(payload)
-  const blobToken = resolveBackupBlobToken(settings)
-  if (!blobToken) return null
+  const backupBlobToken = await resolveBackupListToken(payload)
+  const hasBlobToken = backupBlobToken.trim().length > 0
 
-  const blobs = await listBackups(blobToken)
+  const blobs = hasBlobToken
+    ? await listBackups(payload, { blobToken: backupBlobToken })
+    : []
   const sortedBlobs = [...blobs].sort((a, b) => {
     const ta = getBackupSortTimeMs(transformBlobName(a.pathname), new Date(a.uploadedAt))
     const tb = getBackupSortTimeMs(transformBlobName(b.pathname), new Date(b.uploadedAt))
@@ -67,10 +93,25 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ user, i1
   const lastBackup = sortedBlobs[0]
 
   return (
-    <div className="backup-dashboard">
+    <>
+      <style
+        dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }}
+        data-payload-backup-mongodb="1"
+        id="payload-backup-mongodb-dashboard"
+      />
+      <div className="backup-dashboard">
       <h2>
         Backups <span className="experimental">(experimental)</span>
       </h2>
+
+      {!hasBlobToken && (
+        <p className="backup-dashboard__setup-hint" role="status">
+          Add a Vercel Blob read/write token: set environment variable{' '}
+          <code className="backup-dashboard__setup-hint-code">BLOB_READ_WRITE_TOKEN</code>, or open{' '}
+          <strong>Backup settings</strong> and paste a token. Until then, the list stays empty and
+          cron or manual backups cannot run.
+        </p>
+      )}
 
       <div className="backup-dashboard__toolbar">
         <div className="backup-dashboard__toolbar-meta">
@@ -98,11 +139,11 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ user, i1
 
       <BackupListCollapsible
         blobs={sortedBlobs.map((b) => ({
-          pathname: b.pathname,
-          url: b.url,
           downloadUrl: b.downloadUrl,
+          pathname: b.pathname,
           size: b.size,
           uploadedAt: new Date(b.uploadedAt).toISOString(),
+          url: b.url,
         }))}
         countOtherDb={countOtherDb}
         countOtherHostname={countOtherHostname}
@@ -111,6 +152,7 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ user, i1
         i18nLanguage={i18n?.language || 'en'}
       />
     </div>
+    </>
   )
 }
 

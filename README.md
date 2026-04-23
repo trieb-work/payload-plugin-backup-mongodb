@@ -1,11 +1,9 @@
+> Experimental. Originated in the [Payblocks](https://github.com/trieb-work/payblocks) template, now maintained as a standalone package. Feedback and PRs welcome.
+
 # @trieb.work/payload-plugin-backup-mongodb
 
-A **Payload CMS v3** plugin for MongoDB + media backup, restore, and scheduled retention — with zero
-meta-database and a built-in admin UI. Backups live directly in Vercel Blob Storage, so a fresh
+A **Payload CMS v3** plugin for **MongoDB only** — not Postgres, SQLite, or other database adapters. It handles Mongo + media backup, restore, and scheduled retention with zero meta-database and a built-in admin UI. Backups live directly in Vercel Blob Storage, so a fresh
 install can list and restore any prior backup without bootstrapping a database first.
-
-> Status: experimental. Developed inside the [payblocks](https://github.com/) website template and
-> spun out as a standalone plugin. Feedback and PRs welcome.
 
 ![Backup dashboard embedded in the Payload admin panel](./docs/screenshots/dashboard.png)
 
@@ -19,103 +17,84 @@ bundled and how big it is, then download, restore or delete any backup with one 
 
 - **No meta database.** Every backup is self-describing in its blob name (`type---db---host---{collectionCount}-{timestampMs}.{ext}`). A brand new project can list and restore any backup straight from blob storage.
 - **Scheduled (cron) and on-demand backups.** Wire `/api/backup-mongodb/cron/run` to Vercel Cron or any HTTP scheduler. Retention is configurable (N most recent cron backups are kept; older ones are pruned automatically).
-- **Full database coverage.** Dumps **every** MongoDB collection via the Payload mongoose adapter — including hidden system collections like `users`, `payload-preferences`, `payload-migrations`. Individual collections can be excluded per-backup from the UI or via API.
+- **Full database coverage.** Dumps **every** MongoDB collection via the Payload mongoose adapter — including hidden system collections like `users`, `payload-preferences`, `payload-migrations`. Individual collections can be excluded per backup from the UI or via API.
 - **Optional media bundling.** Cron or manual backups can include Payload `media` blobs in a `.tar.gz` archive alongside the MongoDB dump.
 - **Restore with filters.** Restore any backup with an optional collection blacklist and `mergeData` upsert mode. Partial restores keep the running admin session / tasks collection intact.
-- **Native admin dashboard.** Adds a `BackupDashboard` widget to the Payload admin (via `afterDashboard`): list / sort / filter / search backups, trigger manual backups or restores, configure retention and storage, and live-poll long-running tasks.
-- **Payload REST, not Next.js route files.** All endpoints are registered as Payload custom endpoints and served by the default `/api/[...slug]` handler — you don't need to create any `app/.../route.ts` files yourself.
-- **Pluggable blob storage.** Uses `BLOB_READ_WRITE_TOKEN` by default (the same store you already use for `@payloadcms/storage-vercel-blob`), or point backups at a dedicated Vercel Blob store via the settings UI. Both **public** and **private** access stores are supported; a validation probe detects which modes the store accepts.
-- **Safe, resumable long-running tasks.** Manual backups, restores and seed runs are executed via `next/server`'s `after()` and tracked in a hidden `backup-tasks` collection with TTL (30 min). Clients poll progress with a signed short-lived `pollSecret`, so task status is visible even to unauthenticated follow-up requests during the same action.
-- **Demo/seed support.** Optional `seedDemoDumpUrl` option registers a one-click seed endpoint for templates/starters.
-- **Tested.** Unit tests (Vitest) cover archive, backup, restore, task progress, blob I/O, endpoint auth, cron parsing and blob-name helpers.
+- **Native admin dashboard.** Adds a `BackupDashboard` widget to the Payload admin (`afterDashboard`): list / sort / filter / search backups, trigger manual backups or restores, configure retention and storage, and live-poll long-running tasks.
+- **Payload REST, not Next.js route files.** All endpoints are registered as Payload custom endpoints and served by the default `/api/[...slug]` handler — you do not add `app/.../route.ts` files for this plugin.
+- **Pluggable blob storage.** Uses `BLOB_READ_WRITE_TOKEN` by default (the same store you often use with `@payloadcms/storage-vercel-blob`), or point backups at a dedicated Vercel Blob store in the admin. Both **public** and **private** access stores are supported; a validation step detects which modes the store accepts.
+- **Resumable long-running tasks.** Manual backups, restores, and seed runs are tracked in a hidden `backup-tasks` collection (TTL, 30 min). The UI polls progress with a short-lived `pollSecret` so long jobs stay observable even across reloads.
+- **Demo/seed support.** Optional `seedDemoDumpUrl` registers a one-click seed endpoint for templates and starters.
+- **Tested.** Vitest covers archive, backup, restore, task progress, blob I/O, endpoint auth, cron parsing, and blob-name helpers.
 
 ---
 
 ## Requirements
 
-- Payload CMS **v3+** with the `@payloadcms/db-mongodb` adapter (uses `payload.db.connection.db` internally).
-- MongoDB (any version supported by Payload).
-- A Vercel Blob Storage token (`BLOB_READ_WRITE_TOKEN`). Vercel hosting is **not** required — any Node runtime that can reach Vercel Blob works.
-- Next.js **15+** and React **19+** (required by Payload 3).
+- Payload **v3+** (same major as your other `@payloadcms/*` packages).
+- MongoDB with Payload’s mongoose adapter (`@payloadcms/db-mongodb`).
+- MongoDB server (any version supported by that adapter).
+- A Vercel Blob read/write token (`BLOB_READ_WRITE_TOKEN`). Vercel hosting is **not** required — any Node runtime that can reach Vercel Blob works.
+- Next.js **15+** and React **19+** (the usual Payload 3 + App Router stack).
 
 ### Environment variables
 
-| Variable                 | Required | Purpose                                                                                               |
-| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------- |
-| `MONGODB_URI`            | yes      | MongoDB connection string (used by Payload and by the plugin to label backups with the DB name).      |
-| `BLOB_READ_WRITE_TOKEN`  | yes      | Default Vercel Blob store for backups and media. Can be overridden per-project in the admin settings. |
-| `CRON_SECRET`            | for cron | Bearer token required on every `/api/backup-mongodb/cron/*` call. Vercel Cron sets this for you.      |
-| `NEXT_PUBLIC_SERVER_URL` | optional | Used to label backups with the current host. Falls back to `VERCEL_URL`.                              |
-| `BACKUPS_TO_KEEP`        | optional | Default retention for cron backups if the settings doc hasn't been edited. Default `10`.              |
+| Variable                       | Required | Purpose                                                                                                                                                                                                                                                                                                                |
+| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`                  | yes      | MongoDB connection string (used by Payload and to label backups with the DB name).                                                                                                                                                                                                                                     |
+| `BLOB_READ_WRITE_TOKEN`        | yes      | Default Vercel Blob store for backups and media. Can be overridden in admin settings.                                                                                                                                                                                                                                  |
+| `CRON_SECRET`                  | for cron | Bearer token for every `/api/backup-mongodb/cron/*` call. Vercel Cron can supply this.                                                                                                                                                                                                                                 |
+| `NEXT_PUBLIC_SERVER_URL`       | optional | Used to label backups with the current host. Falls back to `VERCEL_URL` when set.                                                                                                                                                                                                                                      |
+| `BACKUPS_TO_KEEP`              | optional | Default retention for cron backups if the settings document has not been edited. Default `10`.                                                                                                                                                                                                                         |
+| `PAYLOAD_BACKUP_ALLOWED_ROLES` | optional | Comma-separated role slugs that may see the **Backups** dashboard (case-insensitive). Use `*` to allow any authenticated user. When unset, the plugin falls back to requiring a `role` with slug `admin`, or allows everyone when the users collection has no `roles` field. Overridden by the `access` plugin option. |
 
 ---
 
-## Installation
+## Installation and getting started
+
+Use this flow when **adding the plugin to an existing Payload 3 + Next.js app** that already has MongoDB and (typically) Vercel Blob configured.
 
 ### 1. Add the package
 
 ```bash
 pnpm add @trieb.work/payload-plugin-backup-mongodb
-# or: npm install @trieb.work/payload-plugin-backup-mongodb
-# or: yarn add @trieb.work/payload-plugin-backup-mongodb
+# npm install @trieb.work/payload-plugin-backup-mongodb
+# yarn add @trieb.work/payload-plugin-backup-mongodb
 ```
 
-The package also has peer deps on `payload`, `@payloadcms/ui`, `@vercel/blob`, `bson`, `tar-stream`, `next` and `react`; all are satisfied by any Payload 3 + Next.js 15 app.
+Peer dependencies: **`@payloadcms/db-mongodb`**, **`payload`**, **`@payloadcms/ui`**, **`next`**, and **`react`**. (all expected in a Payload 3 + MongoDB + Next.js app).
 
-### 2. Tell Next.js to transpile the package
-
-The plugin ships TypeScript sources so it can be consumed everywhere Payload runs without extra build steps. Add it to `transpilePackages` in `next.config.ts`:
+### 2. Register the plugin
 
 ```ts
-// next.config.ts
-import type { NextConfig } from 'next'
-
-const nextConfig: NextConfig = {
-  transpilePackages: ['@trieb.work/payload-plugin-backup-mongodb'],
-}
-
-export default nextConfig
-```
-
-### 3. Register the plugin in `payload.config.ts`
-
-Starting with v0.1.0, the plugin ships a pre-built ESM bundle (`dist/index.js`) that is safe to
-import directly from `payload.config.ts` — even when the Payload CLI evaluates the file through
-[`jiti`](https://github.com/unjs/jiti). No local wrapper file is needed:
-
-```ts
-// src/payload.config.ts
+// payload.config.ts
 import { buildConfig } from 'payload'
 import { backupMongodbPlugin } from '@trieb.work/payload-plugin-backup-mongodb'
 
 export default buildConfig({
-  // …your collections, globals, etc.
+  // your db adapter, collections, etc.
   plugins: [
     backupMongodbPlugin({
-      // All options are optional. See "Plugin options" below.
-      enabled: !!(process.env.MONGODB_URI && process.env.BLOB_READ_WRITE_TOKEN),
-      backupsToKeep: 10,
+      // all options optional — see "Plugin options"
     }),
   ],
 })
 ```
 
-The plugin automatically:
+The plugin will register the backup collections, mount the dashboard, and add `/api/backup-mongodb/*` endpoints. Import paths resolve to a **published or linked** `dist/` build; after local changes to the package, run `pnpm build` in the plugin repo (or reinstall) so `dist/` is up to date.
 
-- registers the hidden `backup-settings` (singleton) and `backup-tasks` (TTL-indexed) collections,
-- mounts `BackupDashboard` after the admin dashboard,
-- registers all `/api/backup-mongodb/*` endpoints.
+### 3. Regenerate types and the import map
 
-### 4. Regenerate types and import map
+So Payload picks up the new admin components and collections:
 
 ```bash
 pnpm payload generate:types
 pnpm payload generate:importmap
 ```
 
-### 5. Wire up the cron endpoint (optional but recommended)
+### 4. (Optional) Schedule cron backups
 
-Create or extend `vercel.json` in the project root. The path must be `/api/backup-mongodb/cron/run` (or whatever `routes.api` prefix your Payload config uses), and the schedule is a standard cron expression — use [crontab.guru](https://crontab.guru/) if you want a visual builder.
+**Vercel:** add a cron in `vercel.json`. Path must match your API; default is under `/api/…`:
 
 ```json
 {
@@ -128,76 +107,54 @@ Create or extend `vercel.json` in the project root. The path must be `/api/backu
 }
 ```
 
-Vercel Cron injects the `Authorization: Bearer $CRON_SECRET` header automatically. For non-Vercel environments (any Node host, k8s CronJob, GitHub Actions, …) simply hit the same URL with `Authorization: Bearer <your CRON_SECRET>`.
+Vercel Cron sends header `Authorization: Bearer $CRON_SECRET`. **Other hosts** (k8s, GitHub Actions, etc.): `GET` the same URL on your schedule with that same authorization header.
+
+### Checklist
+
+- [ ] Package installed
+- [ ] `backupMongodbPlugin` in `plugins` array
+- [ ] `generate:types` and `generate:importmap` run
+- [ ] `MONGODB_URI` and `BLOB_READ_WRITE_TOKEN` set in the environment
+- [ ] (Optional) `CRON_SECRET` and cron job (vercel.json) if you want scheduled backups
+
+Start your dev server, open `/admin`, sign in as an admin, and you should see **Backups** below the dashboard.
 
 ---
 
 ## Admin UI
 
 After the first login as an admin user, a **Backups** section appears below the default Payload
-dashboard. It's fully self-contained: no extra routes to register, no separate app to run.
-Every day-to-day task — creating, downloading, restoring, deleting, scheduling — happens in the
-dialogs shown below. Access defaults to users whose `roles` array contains a role with slug
-`admin`; override it via the `access` option (see [Plugin options](#plugin-options)).
+dashboard. Day-to-day tasks — create, download, restore, delete, schedule — all happen in the UI below.
+
+**Who can see it?** The visibility rules, in precedence order:
+
+1. If the plugin is registered with an `access` function, it wins (see [Plugin options](#plugin-options)).
+2. Otherwise, if `PAYLOAD_BACKUP_ALLOWED_ROLES` is set, it is used as a comma-separated allow-list of role slugs (case-insensitive). Use `*` for "any authenticated user". Example: `PAYLOAD_BACKUP_ALLOWED_ROLES=admin,superadmin`.
+3. Otherwise, the historical default applies: users with a `role` whose slug is `admin` see the dashboard; projects that don't use a `roles` field at all get the dashboard for any authenticated user.
 
 ### Scheduled (cron) vs on-demand (manual) backups
 
-The plugin supports both modes side by side, each optimized for a different use case:
-
-- **Scheduled / cron backups** run on a cron expression (typically via `vercel.json`) and use the
-  shared settings documented below: fixed retention, a fixed media toggle, and a fixed list of
-  collections to skip. Old cron archives are pruned automatically once the keep-count is exceeded.
-  They show up in the list labeled `CRON BACKUP`.
-- **Manual / on-demand backups** are triggered from the dashboard and configured **per backup**:
+- **Scheduled / cron** backups follow shared settings: retention, media toggle, and collections to skip. Older cron archives are pruned when the keep-count is exceeded. They appear in the list as **CRON BACKUP** (or similar).
+- **Manual / on-demand** backups are configured **per run** — per-collection toggles, optional media in a `.tar.gz` archive. Manual backups are not auto-pruned; use them as checkpoints before migrations.
 
 ![Manual backup dialog with per-collection selection and optional media bundling](./docs/screenshots/manual-backup.png)
 
-Each collection can be toggled on/off individually (including hidden system collections like
-`users`, `payload-preferences`, `payload-migrations`). Document counts are shown up front so you
-know exactly how much data will be included. If your project has a `media` collection, a dedicated
-checkbox lets you bundle the actual image/file blobs from storage into the archive (`.tar.gz`)
-instead of just the Mongo metadata. Manual runs ignore the cron retention policy and are never
-auto-pruned, so you can use them as safe "checkpoints" before risky migrations.
-
 ### Selective restore with per-collection preview
 
-Restoring doesn't have to be all-or-nothing. Clicking **Restore** on any backup opens a preview of
-the archive's contents before anything is written to the database:
+**Restore** opens a preview of the archive before any write. You can restore everything, cherry-pick collections, or skip media from `.tar.gz` when you only need database rows. Restoring from a different host or database is supported; filters help when cloning production into staging.
 
-![Restore dialog previewing document counts per collection, including versions](./docs/screenshots/restore.png)
-
-The preview lists every collection inside the archive with its document count (and version-history
-count where applicable), so you can:
-
-- **Restore everything** by leaving "Restore all collections" checked, or
-- **Cherry-pick** individual collections — e.g. roll back only `pages` after a botched release
-  while keeping current `users`, `orders`, or `form-submissions` untouched, or
-- **Opt out of media** uploads from `.tar.gz` archives when you just need the database rows back.
-
-Restoring a backup from a _different_ host or database also works: the dashboard filter hides
-foreign-host archives by default but you can show them explicitly, which is handy for cloning
-production data into staging or seeding a local dev DB.
+![Restore dialog previewing document counts per collection](./docs/screenshots/restore.png)
 
 ### Scheduled backup settings
 
-Cron retention, storage token, and the cron-mode collection skip-list all live in one modal:
+Retention, storage token, and cron collection skip list live in one modal:
 
-![Scheduled backup settings: cron schedule, retention, dedicated blob token, collection skip list](./docs/screenshots/settings.png)
+![Scheduled backup settings: cron schedule, retention, blob token, collection skip list](./docs/screenshots/settings.png)
 
-From top to bottom:
-
-- **Schedule**: read-only summary of the active cron job. The plugin parses `vercel.json` and
-  renders a human-readable description of the cron expression (via
-  [`cronstrue`](https://github.com/bradymholt/cronstrue)) so you always know when the next run is.
-- **Retention**: how many cron archives to keep; older cron runs are deleted after each successful
-  backup. Manual backups are **not** affected by this setting.
-- **Dedicated backup storage** _(optional)_: paste a separate Vercel Blob read/write token if you
-  want backups to live in a different store than your media (for example, a private customer-
-  managed store). A validation probe tests the token, detects whether the store supports public
-  or private access, and offers to transfer existing archives from the old store into the new one
-  before switching. The token field is masked once saved.
-- **Collection selection**: which collections cron backups should include. Defaults to
-  "everything", with individual opt-outs per collection. Manual backups ask again every time.
+- **Schedule:** when `vercel.json` is present, the plugin can show a human-readable cron description (via [cronstrue](https://github.com/bradymholt/cronstrue)).
+- **Retention:** how many **cron** archives to keep; manual backups are not pruned by this.
+- **Dedicated backup storage (optional):** a separate Vercel Blob read/write token so backups can live in a different store than media. The UI can validate the token and optionally copy existing `backups/*` objects to the new store.
+- **Collection selection for cron:** defaults to all collections, with per-collection opt-out.
 
 ---
 
@@ -205,34 +162,43 @@ From top to bottom:
 
 ```ts
 type BackupPluginOptions = {
-  /** Disable the plugin entirely (no collections, no endpoints, no UI). Default: true. */
+  /**
+   * Set to `false` to disable the plugin (no collections, endpoints, or admin UI).
+   * Omit or leave unset to keep the plugin active.
+   */
   enabled?: boolean
 
-  /** Default number of cron backups to keep when no setting is saved. Default: env BACKUPS_TO_KEEP or 10. */
+  /** Default cron retention when no value is stored in settings. Falls back to `BACKUPS_TO_KEEP` or `10`. */
   backupsToKeep?: number
 
   /**
-   * Register `POST /api/backup-mongodb/admin/seed` (demo DB dump + public/seed/media seed).
-   * Useful for template/starter repos. Omit to disable.
+   * If set, registers `POST /api/backup-mongodb/admin/seed` (demo dump + public seed media where applicable).
+   * Omit in production unless you need it.
    */
   seedDemoDumpUrl?: string
 
   /**
-   * Custom access check for all admin routes and the dashboard component.
-   * Receives Payload's user object and must return true to allow access.
-   * Default: user must have a role with slug `admin`.
+   * Custom access check for admin routes and the dashboard. Overrides the
+   * `PAYLOAD_BACKUP_ALLOWED_ROLES` env var when provided.
+   *
+   * Default (env-based): see the `PAYLOAD_BACKUP_ALLOWED_ROLES` entry in the
+   * environment variables table. When neither is configured, the check falls back
+   * to a role with slug `admin`, or allows any authenticated user in projects
+   * without a `roles` field.
    */
   access?: (user: Record<string, unknown> | null) => boolean
 }
 ```
 
-Example with a custom access function and seed URL (typical starter setup):
+Example with custom access and seed URL (typical for starters):
 
 ```ts
 backupMongodbPlugin({
   access: (user) =>
-    Array.isArray((user as any)?.roles) &&
-    (user as any).roles.some((r: any) => r?.slug === 'admin' || r?.slug === 'superadmin'),
+    Array.isArray((user as { roles?: { slug?: string }[] })?.roles) &&
+    (user as { roles: { slug?: string }[] }).roles.some(
+      (r) => r?.slug === 'admin' || r?.slug === 'superadmin',
+    ),
   seedDemoDumpUrl: 'https://example.com/seed/demo-db.json',
 })
 ```
@@ -241,74 +207,53 @@ backupMongodbPlugin({
 
 ## HTTP API (Payload REST)
 
-All endpoints are served by Payload's default `/api/[...slug]` handler under
-**`/api/backup-mongodb/…`** (the `backup-mongodb` prefix avoids clashing with a collection whose
-slug is `backup`). The admin UI uses the same URLs via the exported `backupPluginPublicApiPaths`
-helper.
+All routes are served by Payload’s `/api/[...slug]` handler under **`/api/backup-mongodb/…`**. The `backup-mongodb` prefix avoids clashing with a collection slug. The admin UI uses the same URLs; use the exported `backupPluginPublicApiPaths` helper in client code.
 
 ### Cron / external (Bearer `CRON_SECRET`)
 
 ```http
 GET  /api/backup-mongodb/cron/run        # enqueue a cron backup
-GET  /api/backup-mongodb/cron/list       # list backups
-POST /api/backup-mongodb/cron/restore    # body: { "url": "https://…" }
+GET  /api/backup-mongodb/cron/list     # list backups
+POST /api/backup-mongodb/cron/restore  # body: { "url": "https://…" }
 Authorization: Bearer <CRON_SECRET>
 ```
 
-### Admin (Payload session cookie, or task `pollSecret` for `/task/:id`)
+### Admin (session cookie, or `pollSecret` for `/task/:id` where applicable)
 
-| Method         | Path                                                                |
-| -------------- | ------------------------------------------------------------------- |
-| `POST`         | `/api/backup-mongodb/admin/manual`                                  |
-| `POST`         | `/api/backup-mongodb/admin/restore`                                 |
-| `POST`         | `/api/backup-mongodb/admin/backup-preview`                          |
-| `POST`         | `/api/backup-mongodb/admin/restore-preview`                         |
-| `POST`         | `/api/backup-mongodb/admin/delete`                                  |
-| `GET`          | `/api/backup-mongodb/admin/backup-download`                         |
-| `GET`          | `/api/backup-mongodb/admin/task/:id`                                |
-| `GET` / `POST` | `/api/backup-mongodb/admin/settings`                                |
-| `POST`         | `/api/backup-mongodb/admin/validate-blob-token`                     |
-| `POST`         | `/api/backup-mongodb/admin/seed` — only if `seedDemoDumpUrl` is set |
+| Method         | Path                                                           |
+| -------------- | -------------------------------------------------------------- |
+| `POST`         | `/api/backup-mongodb/admin/manual`                             |
+| `POST`         | `/api/backup-mongodb/admin/restore`                            |
+| `POST`         | `/api/backup-mongodb/admin/backup-preview`                     |
+| `POST`         | `/api/backup-mongodb/admin/restore-preview`                    |
+| `POST`         | `/api/backup-mongodb/admin/delete`                             |
+| `GET`          | `/api/backup-mongodb/admin/backup-download`                    |
+| `GET`          | `/api/backup-mongodb/admin/task/:id`                           |
+| `GET` / `POST` | `/api/backup-mongodb/admin/settings`                           |
+| `POST`         | `/api/backup-mongodb/admin/validate-blob-token`                |
+| `POST`         | `/api/backup-mongodb/admin/seed` — if `seedDemoDumpUrl` is set |
 
 ---
 
 ## Programmatic API
 
-For scripts, custom hooks or tests:
+For scripts, hooks, and tests:
 
-```ts
+````ts
 import {
   createBackup,
   listBackups,
-  restoreBackup,
-  restoreSeedMedia,
-  createMediaBackupFile,
-  getDb,
-  createTarGzip,
-  resolveTarGzip,
-  createBlobName,
-  transformBlobName,
-  getBackupSortTimeMs,
-  formatBytes,
-  getCurrentDbName,
-  getCurrentHostname,
-  backupPluginPublicApiPaths,
+  restoreBackup
 } from '@trieb.work/payload-plugin-backup-mongodb'
 
-// Trigger a manual backup from a Payload task / migration / one-off script:
+// Example: manual backup from a one-off script
 await createBackup(payload, { cron: false, includeMedia: true })
 
-// Restore from a URL, skipping the `users` collection:
-await restoreBackup(payload, downloadUrl, ['users'], /* mergeData */ false)
+// Example: restore from a URL, skipping `users`
+await restoreBackup(payload, downloadUrl, ['users'], false)
 
-// List existing backups (respects the token you pass; falls back to env):
-const blobs = await listBackups(process.env.BLOB_READ_WRITE_TOKEN)
-```
-
-The default export barrel only contains server-safe helpers. Client components (`TaskActionButton`, `BackupListCollapsible`, dialogs, …) are reachable via the `/client` sub-path:
-
-```ts
-import { TaskActionButton } from '@trieb.work/payload-plugin-backup-mongodb/client'
+// Example: list backup archives (token from backup-settings + env, same as create/restore)
+const blobs = await listBackups(payload)
 ```
 
 ---
@@ -317,21 +262,23 @@ import { TaskActionButton } from '@trieb.work/payload-plugin-backup-mongodb/clie
 
 ### Blob naming
 
-```
-backups/{type}---{dbName}---{hostname}---{collectionCount}-{timestampMs}.{json|tar.gz}
-```
+````
 
-- `type`: `cron` or `manual` (also `cron-` for legacy listings).
-- `dbName` / `hostname`: URL-encoded; pulled from `MONGODB_URI` and `NEXT_PUBLIC_SERVER_URL` / `VERCEL_URL`.
-- `collectionCount-timestampMs`: embedded sort key used by the UI (falls back to blob `uploadedAt` for legacy names).
+backups/{type}---{dbName}---{hostname}---{collectionCount}-{timestampMs}.{json|tar.gz}
+
+````
+
+- `type`: `cron` or `manual` (and legacy-style labels where applicable).
+- `dbName` / `hostname`: derived from your MongoDB URL and public server URL; URL-encoded in the name.
+- `collectionCount` + `timestampMs`: sort key for listing; legacy blob names are still supported.
 
 ### Public vs private stores
 
-`validateBackupBlobToken` probes an unused path in the target store, first as `private`, then `public`. The detected access level is persisted in `backup-settings.backupBlobAccess` and used when uploading new archives. Private blobs are fetched via `get(pathname, { access: 'private', token })`; public blobs use anonymous `downloadUrl` with a signed-SDK fallback. Restore/preview endpoints transparently handle both.
+A validation step probes the bucket and records whether the store behaves as public or private. New uploads use the right access mode. Restore and preview flows handle both.
 
 ### Overriding the backup store
 
-If you want backups to live in a different Vercel Blob store than your media (e.g. a private customer-managed store), open the **Backup settings** modal in the admin, paste a dedicated `BLOB_READ_WRITE_TOKEN`, validate it and — optionally — transfer existing backups from the old store into the new one before switching.
+To keep backups in a **different** Vercel Blob project than media, open **Backup settings** in the admin, paste a dedicated `BLOB_READ_WRITE_TOKEN`, validate, and optionally migrate existing `backups/*` objects to the new store before switching.
 
 ---
 
@@ -339,28 +286,20 @@ If you want backups to live in a different Vercel Blob store than your media (e.
 
 ```bash
 pnpm test:int
-```
+````
 
-To iterate on the plugin inside a full Payload instance (Next.js admin panel, MongoDB memory
-server), use the bundled `dev/` project:
-
-```bash
-pnpm install
-pnpm dev        # http://localhost:3000/admin  (login: dev@payloadcms.com / test)
-```
-
-All external services (`@vercel/blob`, `bson`) are mocked with `vi.mock()`. Tests target `src/core`, `src/utils`, `src/endpoints` and `src/components` helpers.
+The repo includes a `dev/` Payload + Next app (MongoDB Memory Server, etc.): `pnpm dev` → `http://localhost:3000/admin` (use credentials from the `dev/` app if documented there). In unit tests, external services like `@vercel/blob` and `bson` are often mocked with `vi.mock()`.
 
 ---
 
 ## Roadmap / ideas
 
-- Test and optimize for very large backups. Vercel Blob supports up to 5 TB per object via multipart uploads (5 GB single-part); we may need to switch to `putMultipart` at some threshold.
-- Additional storage adapters: S3, Azure, GCP, Cloudflare R2, filesystem.
-- Scheduler-agnostic cron helpers (currently reads `vercel.json` to render the schedule in the admin UI).
-- Progressive streaming restore to avoid holding the whole archive in memory for big databases.
-- add E2E tests with an demo payload project
-- make backup folder configurable
+- Multipart / very large backup uploads (Vercel Blob supports large objects; may need to switch past single-part limits).
+- Additional storage adapters (S3, R2, filesystem, etc.).
+- Scheduler-agnostic display when not using Vercel (`vercel.json` is currently used for the schedule summary where available).
+- Streaming restore for very large databases.
+- More E2E coverage around a demo project.
+- Configurable `backups/` prefix or bucket layout.
 
 ---
 

@@ -2,7 +2,12 @@ export { backupMongodbPlugin } from './plugin.js'
 export { backupPluginPublicApiPaths } from './publicApiPaths.js'
 export type { BackupPluginOptions } from './types.js'
 
-export { createBackup, listBackups, createMediaBackupFile } from './core/backup.js'
+export {
+  createBackup,
+  createMediaBackupFile,
+  listBackups,
+  resolveBackupListToken,
+} from './core/backup.js'
 export { getBackupSourcePreviewForManual } from './core/backupSourcePreview.js'
 export type { BackupSourcePreviewResponse } from './core/backupSourcePreview.js'
 export { restoreBackup, restoreSeedMedia } from './core/restore.js'

@@ -1,6 +1,9 @@
 // @ts-check
 
 import payloadEsLintConfig from '@payloadcms/eslint-config'
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 export const defaultESLintIgnores = [
   '**/.temp',
@@ -43,4 +46,4 @@ export default [
       },
     },
   },
-]
+];

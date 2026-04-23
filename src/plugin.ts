@@ -1,9 +1,11 @@
 import type { Config, Plugin } from 'payload'
-import { createBackupMongodbEndpoints } from './endpoints/index.js'
+
 import type { BackupPluginOptions } from './types.js'
+
 import { BackupSettingsCollection } from './collections/BackupSettings.js'
 import { BackupTasksCollection } from './collections/BackupTasks.js'
 import { BACKUP_SETTINGS_SLUG } from './core/backupSettings.js'
+import { createBackupMongodbEndpoints } from './endpoints/index.js'
 
 export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin => {
   return (incomingConfig: Config): Config => {
@@ -18,8 +20,6 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
 
     return {
       ...incomingConfig,
-      collections: [...existingCollections, BackupTasksCollection, BackupSettingsCollection],
-      endpoints: [...existingEndpoints, ...backupEndpoints],
       admin: {
         ...incomingConfig.admin,
         components: {
@@ -30,6 +30,8 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
           ],
         },
       },
+      collections: [...existingCollections, BackupTasksCollection, BackupSettingsCollection],
+      endpoints: [...existingEndpoints, ...backupEndpoints],
       onInit: async (payload) => {
         await incomingConfig.onInit?.(payload)
         try {
@@ -41,9 +43,9 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
             await payload.create({
               collection: BACKUP_SETTINGS_SLUG,
               data: {
-                backupsToKeep: Number(process.env.BACKUPS_TO_KEEP) || 10,
                 backupBlobAccess: null,
                 backupBlobReadWriteToken: '',
+                backupsToKeep: Number(process.env.BACKUPS_TO_KEEP) || 10,
                 includeMediaForCron: true,
                 skipMongoCollections: [],
               },
@@ -59,7 +61,7 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
             const db = (payload.db as any).connection.db
             await db
               .collection('backup-tasks')
-              .createIndex({ updatedAt: 1 }, { expireAfterSeconds: 1800, background: true })
+              .createIndex({ updatedAt: 1 }, { background: true, expireAfterSeconds: 1800 })
           }
         } catch {
           payload.logger.warn('[backup-plugin] Could not create TTL index on backup-tasks')

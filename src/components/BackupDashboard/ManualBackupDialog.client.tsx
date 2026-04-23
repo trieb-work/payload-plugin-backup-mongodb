@@ -2,11 +2,12 @@
 
 import { Button } from '@payloadcms/ui'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview.js'
 import { backupPluginPublicApiPaths } from '../../publicApiPaths.js'
 import { skipMongoNamesFromPreview } from '../../utils/backupSelection.js'
+import { BACKUP_LABEL_MAX_LENGTH, sanitizeBackupLabel } from '../../utils/blobName.js'
 import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
 
 import { CollectionBackupPreviewBody } from './CollectionBackupPreviewBody.client.js'
@@ -14,6 +15,8 @@ import { TaskActionButton } from './TaskActionButton.client.js'
 
 export const ManualBackupDialog: React.FC = () => {
   const router = useRouter()
+  const uid = useId()
+  const labelInputId = `${uid}-manual-backup-label`
   const dialogRef = useRef<HTMLDialogElement>(null)
   const postSuccessCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [preview, setPreview] = useState<BackupSourcePreviewResponse | null>(null)
@@ -22,6 +25,7 @@ export const ManualBackupDialog: React.FC = () => {
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [includeMediaBlobs, setIncludeMediaBlobs] = useState(true)
   const [backupAllCollections, setBackupAllCollections] = useState(false)
+  const [label, setLabel] = useState('')
 
   const resetState = useCallback(() => {
     setPreview(null)
@@ -30,6 +34,7 @@ export const ManualBackupDialog: React.FC = () => {
     setSelected({})
     setIncludeMediaBlobs(true)
     setBackupAllCollections(false)
+    setLabel('')
   }, [])
 
   useEffect(() => {
@@ -92,6 +97,7 @@ export const ManualBackupDialog: React.FC = () => {
     setSelected({})
     setIncludeMediaBlobs(true)
     setBackupAllCollections(false)
+    setLabel('')
     dialogRef.current?.showModal()
     void loadPreview()
   }
@@ -112,12 +118,15 @@ export const ManualBackupDialog: React.FC = () => {
     return includeMediaBlobs
   }, [hasMediaBlobOption, includeMediaBlobs])
 
+  const sanitizedLabel = useMemo(() => sanitizeBackupLabel(label), [label])
+
   const backupBody = useMemo(
     () => ({
       includeMedia,
+      label: sanitizedLabel || undefined,
       skipCollections,
     }),
-    [includeMedia, skipCollections],
+    [includeMedia, sanitizedLabel, skipCollections],
   )
 
   const closeModalAfterBackupSuccess = useCallback(() => {
@@ -160,6 +169,26 @@ export const ManualBackupDialog: React.FC = () => {
         onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dialogRef)}
       >
         <p className="backup-confirm-dialog__title">Create manual backup</p>
+
+        <div className="manual-backup-label">
+          <label className="manual-backup-label__label" htmlFor={labelInputId}>
+            Label <span className="manual-backup-label__hint">(optional)</span>
+          </label>
+          <input
+            autoComplete="off"
+            className="manual-backup-label__input"
+            id={labelInputId}
+            maxLength={BACKUP_LABEL_MAX_LENGTH}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. pre-release snapshot"
+            spellCheck={false}
+            type="text"
+            value={label}
+          />
+          <p className="manual-backup-label__help">
+            Shown in the backup list so you can find this backup later.
+          </p>
+        </div>
 
         <CollectionBackupPreviewBody
           phase={phase}

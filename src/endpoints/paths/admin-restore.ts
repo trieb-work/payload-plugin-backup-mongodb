@@ -10,7 +10,7 @@ import {
 import { restoreBackup } from '../../core/restore.js'
 import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress.js'
 import type { BackupPluginOptions } from '../../types.js'
-import { readRequestJson, requireBackupAdmin } from '../shared.js'
+import { jsonError, readRequestJson, requireBackupAdmin } from '../shared.js'
 
 export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoint {
   return {
@@ -24,7 +24,7 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
       const blobAccess = resolveBackupBlobAccess(settings)
-      if (!blobToken) return new Response('Service unavailable', { status: 503 })
+      if (!blobToken) return jsonError('Service unavailable', 503)
 
       const body = (await readRequestJson(req)) as Record<string, unknown>
       const pathname = body?.pathname
@@ -37,19 +37,17 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
         : []
 
       if (!url || typeof url !== 'string') {
-        return new Response('Missing url', { status: 400 })
+        return jsonError('Missing url', 400)
       }
       try {
         new URL(url)
       } catch {
-        return new Response('Invalid url', { status: 400 })
+        return jsonError('Invalid url', 400)
       }
 
       const backupRead = resolveBackupArchiveRead(settings, pathname)
       if (blobAccess === 'private' && !backupRead) {
-        return new Response('Missing pathname (required for dedicated backup blob store)', {
-          status: 400,
-        })
+        return jsonError('Missing pathname (required for dedicated backup blob store)', 400)
       }
 
       const { pollSecret, taskId } = await createBackupTask(payload, 'restore', 'Restore queued')

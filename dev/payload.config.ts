@@ -3,10 +3,10 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import path from 'path'
 import { buildConfig } from 'payload'
-import { backupMongodbPlugin } from '@trieb.work/payload-plugin-backup-mongodb'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
+import { backupMongodbPlugin } from '../src/index'
 import { testEmailAdapter } from './helpers/testEmailAdapter.js'
 import { seed } from './seed.js'
 
@@ -69,7 +69,7 @@ const buildConfigWithMemoryDB = async () => {
     onInit: async (payload) => {
       await seed(payload)
     },
-    plugins: [backupMongodbPlugin({})],
+    plugins: [backupMongodbPlugin()],
     secret: process.env.PAYLOAD_SECRET || 'test-secret_key',
     sharp,
     typescript: {
