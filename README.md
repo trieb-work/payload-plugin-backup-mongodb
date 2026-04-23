@@ -2,8 +2,7 @@
 
 # @trieb.work/payload-plugin-backup-mongodb
 
-A **Payload CMS v3** plugin for **MongoDB only** — not Postgres, SQLite, or other database adapters. It handles Mongo + media backup, restore, and scheduled retention with zero meta-database and a built-in admin UI. Backups live directly in Vercel Blob Storage, so a fresh
-install can list and restore any prior backup without bootstrapping a database first.
+A **Payload CMS v3** plugin for **MongoDB only** — not Postgres, SQLite, or other database adapters. It handles Mongo + media backup, restore, and scheduled retention with zero meta-database and a built-in admin UI. Backups live directly in Vercel Blob Storage, so a fresh install can list and restore any prior backup without bootstrapping a database first.
 
 ![Backup dashboard embedded in the Payload admin panel](./docs/screenshots/dashboard.png)
 
