@@ -1,4 +1,4 @@
-@import '~@payloadcms/ui/scss';
+@import 'pkg:@payloadcms/ui/scss';
 
 .backup-dashboard {
   // afterDashboard is already inside the dashboard content gutter — extra padding-inline
@@ -103,6 +103,23 @@
     margin: 0 0 base(0.75);
     font-size: 13px;
     color: var(--theme-elevation-600);
+  }
+
+  &__setup-hint {
+    margin: 0 0 base(0.9);
+    padding: base(0.65) base(0.9);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--theme-elevation-800);
+    background: var(--theme-warning-50, rgba(255, 193, 7, 0.12));
+    border: 1px solid var(--theme-warning-200, rgba(255, 152, 0, 0.35));
+    border-radius: base(0.2);
+  }
+
+  &__setup-hint-code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    font-weight: 500;
   }
 
   &__toolbar {
@@ -248,6 +265,21 @@
         font-variant-numeric: tabular-nums;
       }
 
+      &--label {
+        background: rgba(124, 58, 237, 0.1);
+        color: var(--theme-elevation-900);
+        border-color: rgba(124, 58, 237, 0.25);
+        font-weight: 600;
+        max-width: 24ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        .backup-item__pill-key {
+          color: rgba(124, 58, 237, 0.9);
+        }
+      }
+
       &--size {
         background: var(--theme-elevation-0, #fff);
         border-color: var(--theme-elevation-150);
@@ -260,6 +292,7 @@
 
         .backup-item__pill-key {
           color: var(--theme-warning-700, #a26a00);
+          font-weight: 700;
         }
       }
 
@@ -491,6 +524,25 @@
     color: var(--theme-elevation-900);
   }
 
+  &__text {
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: base(0.15);
+    border: 1px solid var(--theme-elevation-200);
+    background: var(--theme-input-bg);
+    color: var(--theme-elevation-900);
+    min-width: 0;
+    width: 100%;
+
+    &::placeholder {
+      color: var(--theme-elevation-400);
+    }
+  }
+
+  &__row--label {
+    grid-template-columns: 56px 1fr;
+  }
+
   /* Payload-style radios (match checkbox-input sizing / borders, circular + dot) */
   &__radio-row {
     display: flex;
@@ -559,6 +611,59 @@
 
   &__hint {
     font-weight: 400;
+    color: var(--theme-elevation-500);
+  }
+}
+
+.manual-backup-label {
+  display: flex;
+  flex-direction: column;
+  gap: base(0.2);
+  padding: 0 base(1);
+  margin: base(0.25) 0 base(0.55);
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--theme-elevation-800);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--theme-elevation-500);
+  }
+
+  &__input {
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: base(0.15);
+    border: 1px solid var(--theme-elevation-200);
+    background: var(--theme-input-bg);
+    color: var(--theme-elevation-900);
+
+    &::placeholder {
+      color: var(--theme-elevation-400);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--theme-elevation-400);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--theme-elevation-400);
+      outline-offset: 1px;
+    }
+  }
+
+  &__help {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.35;
     color: var(--theme-elevation-500);
   }
 }

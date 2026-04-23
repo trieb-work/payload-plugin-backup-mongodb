@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { describeCronSchedule } from '../src/core/vercelBackupCron.js'
+import { describeCronSchedule } from '../../src/core/vercelBackupCron.js'
 
 describe('describeCronSchedule', () => {
   it('describes a daily cron', () => {

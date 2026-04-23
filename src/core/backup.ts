@@ -9,15 +9,48 @@ import {
 } from './backupBlobIO.js'
 import { getDb } from './db.js'
 import { updateBackupTask } from './taskProgress.js'
-import { createBlobName, getCurrentDbName, getCurrentHostname } from '../utils/index.js'
+import { getResolvedCronBackupSettings, resolveBackupBlobToken } from './backupSettings.js'
+import {
+  createBlobName,
+  getCurrentDbName,
+  getCurrentHostname,
+  sanitizeBackupLabel,
+} from '../utils/index.js'
 
 export const COLLECTION_FILE_NAME = 'collections.json'
 
-export async function listBackups(blobToken?: string) {
+/**
+ * Resolves the Vercel Blob read/write token the same way as backup endpoints and
+ * {@link createBackup} / {@link restoreBackup}: settings document override, else `BLOB_READ_WRITE_TOKEN`.
+ * Pass `explicitToken` to skip reading settings (same as `options.blobToken` in those calls).
+ */
+export async function resolveBackupListToken(
+  payload: Payload,
+  explicitToken?: string,
+): Promise<string> {
+  const t = explicitToken?.trim()
+  if (t) return t
+  return resolveBackupBlobToken(await getResolvedCronBackupSettings(payload)).trim()
+}
+
+export async function listBackups(
+  payload: Payload,
+  options: {
+    /**
+     * When set, used as the Vercel Blob token (e.g. tests or a pre-resolved value).
+     * When omitted, uses {@link resolveBackupListToken} (settings + env), same as other backup APIs.
+     */
+    blobToken?: string
+  } = {},
+) {
+  const token = await resolveBackupListToken(payload, options.blobToken)
+  if (!token) {
+    return []
+  }
   const { blobs } = await list({
     prefix: 'backups/',
     limit: 1000,
-    token: resolveBlobToken(blobToken),
+    token,
   })
   return blobs
 }
@@ -76,11 +109,24 @@ export async function createBackup(
     blobToken?: string
     /** Public (default) or private Vercel Blob access for the uploaded backup archive. */
     blobAccess?: BackupBlobAccessLevel
+    /**
+     * Optional human-readable label for manual backups (appears in the backup list and is
+     * searchable via the label filter). Ignored for cron backups. Whitespace is collapsed,
+     * length is capped and the stored value is URL-encoded in the blob pathname.
+     */
+    label?: string
     taskId?: string
   } = {},
 ): Promise<void> {
-  const { cron = false, includeMedia = false, backupsToKeep, skipCollections, blobToken, taskId } =
-    options
+  const {
+    cron = false,
+    includeMedia = false,
+    backupsToKeep,
+    skipCollections,
+    blobToken,
+    taskId,
+  } = options
+  const label = cron ? '' : sanitizeBackupLabel(options.label)
   const blobAccess: BackupBlobAccessLevel = options.blobAccess ?? 'public'
   const envMedia = (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
   const token = resolveBlobToken(blobToken)
@@ -182,6 +228,7 @@ export async function createBackup(
     includedCollectionCount,
     backupTimestampMs,
     includeMedia ? 'tar.gz' : 'json',
+    label || undefined,
   )}`
 
   payload.logger.info({ name }, '[backup] Uploading backup to blob storage')

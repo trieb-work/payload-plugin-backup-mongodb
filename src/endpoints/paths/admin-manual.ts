@@ -9,7 +9,8 @@ import {
 } from '../../core/backupSettings.js'
 import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress.js'
 import type { BackupPluginOptions } from '../../types.js'
-import { readRequestJson, requireBackupAdmin } from '../shared.js'
+import { sanitizeBackupLabel } from '../../utils/index.js'
+import { jsonError, readRequestJson, requireBackupAdmin } from '../shared.js'
 
 export function createAdminManualEndpoint(options: BackupPluginOptions): Endpoint {
   return {
@@ -23,7 +24,7 @@ export function createAdminManualEndpoint(options: BackupPluginOptions): Endpoin
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
       const blobAccess = resolveBackupBlobAccess(settings)
-      if (!blobToken) return new Response('Service unavailable', { status: 503 })
+      if (!blobToken) return jsonError('Service unavailable', 503)
 
       const body = (await readRequestJson(req)) as Record<string, unknown>
       const clientSkipRaw = body?.skipCollections
@@ -34,11 +35,12 @@ export function createAdminManualEndpoint(options: BackupPluginOptions): Endpoin
         : []
       const wantsBlobMedia = body?.includeMedia === true
       const includeMedia = wantsBlobMedia && !clientSkip.includes('media')
+      const label = sanitizeBackupLabel(body?.label)
 
       const { pollSecret, taskId } = await createBackupTask(payload, 'backup', 'Backup queued')
 
       payload.logger.info(
-        { skipCount: clientSkip.length, taskId, includeMedia },
+        { skipCount: clientSkip.length, taskId, includeMedia, hasLabel: Boolean(label) },
         '[backup-endpoint] Manual backup queued',
       )
 
@@ -46,6 +48,7 @@ export function createAdminManualEndpoint(options: BackupPluginOptions): Endpoin
         createBackup(payload, {
           cron: false,
           includeMedia,
+          label: label || undefined,
           skipCollections: clientSkip,
           blobToken,
           blobAccess,

@@ -46,7 +46,6 @@ tests/**/*.d.ts
 src/**/*.d.ts
 !src/payload-config.d.ts
 
-.env
 
 /dev/media
 
@@ -55,3 +54,4 @@ src/**/*.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+config.bat

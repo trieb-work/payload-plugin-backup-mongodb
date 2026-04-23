@@ -14,6 +14,6 @@
       "@trieb.work/payload-plugin-backup-mongodb/rsc": ["./src/exports/rsc.ts"]
     }
   },
-  "include": ["./src/**/*.ts", "./src/**/*.tsx"],
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./src/**/*.d.ts"],
   "exclude": ["dist", "node_modules", "tests", "dev"]
 }

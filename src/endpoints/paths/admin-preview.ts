@@ -8,7 +8,7 @@ import {
   resolveBackupBlobAccess,
 } from '../../core/backupSettings.js'
 import type { BackupPluginOptions } from '../../types.js'
-import { readRequestJson, requireBackupAdmin } from '../shared.js'
+import { jsonError, readRequestJson, requireBackupAdmin } from '../shared.js'
 
 /**
  * Admin backup source preview and restore archive preview (both POST).
@@ -49,21 +49,19 @@ export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpo
         const url = body?.url
 
         if (!url || typeof url !== 'string') {
-          return new Response('Missing url', { status: 400 })
+          return jsonError('Missing url', 400)
         }
 
         try {
           new URL(url)
         } catch {
-          return new Response('Invalid url', { status: 400 })
+          return jsonError('Invalid url', 400)
         }
 
         const settings = await getResolvedCronBackupSettings(payload)
         const backupRead = resolveBackupArchiveRead(settings, body?.pathname)
         if (resolveBackupBlobAccess(settings) === 'private' && !backupRead) {
-          return new Response('Missing pathname (required for dedicated backup blob store)', {
-            status: 400,
-          })
+          return jsonError('Missing pathname (required for dedicated backup blob store)', 400)
         }
 
         const locale = typeof body?.locale === 'string' ? body.locale : undefined
