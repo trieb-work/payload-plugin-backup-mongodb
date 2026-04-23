@@ -1,0 +1,86 @@
+import type { Endpoint } from 'payload'
+
+import { getBackupSourcePreviewForManual } from '../../core/backupSourcePreview.js'
+import { getRestorePreviewForAdminRestore } from '../../core/restorePreview.js'
+import {
+  getResolvedCronBackupSettings,
+  resolveBackupArchiveRead,
+  resolveBackupBlobAccess,
+} from '../../core/backupSettings.js'
+import type { BackupPluginOptions } from '../../types.js'
+import { readRequestJson, requireBackupAdmin } from '../shared.js'
+
+/**
+ * Admin backup source preview and restore archive preview (both POST).
+ */
+export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpoint[] {
+  return [
+    {
+      method: 'post',
+      path: '/backup-mongodb/admin/backup-preview',
+      handler: async (req) => {
+        const auth = await requireBackupAdmin(req, options)
+        if (auth instanceof Response) return auth
+
+        const { payload } = req
+        const body = (await readRequestJson(req)) as { locale?: string }
+        const locale = typeof body?.locale === 'string' ? body.locale : undefined
+        const preferredLocales = locale ? [locale, 'de', 'en'] : ['de', 'en']
+
+        try {
+          const preview = await getBackupSourcePreviewForManual(payload, { preferredLocales })
+          return Response.json(preview)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Preview failed'
+          payload.logger.error({ err: error }, '[backup-endpoint] Backup source preview failed')
+          return Response.json({ error: message }, { status: 422 })
+        }
+      },
+    },
+    {
+      method: 'post',
+      path: '/backup-mongodb/admin/restore-preview',
+      handler: async (req) => {
+        const auth = await requireBackupAdmin(req, options)
+        if (auth instanceof Response) return auth
+
+        const { payload } = req
+        const body = (await readRequestJson(req)) as { url?: string; locale?: string; pathname?: string }
+        const url = body?.url
+
+        if (!url || typeof url !== 'string') {
+          return new Response('Missing url', { status: 400 })
+        }
+
+        try {
+          new URL(url)
+        } catch {
+          return new Response('Invalid url', { status: 400 })
+        }
+
+        const settings = await getResolvedCronBackupSettings(payload)
+        const backupRead = resolveBackupArchiveRead(settings, body?.pathname)
+        if (resolveBackupBlobAccess(settings) === 'private' && !backupRead) {
+          return new Response('Missing pathname (required for dedicated backup blob store)', {
+            status: 400,
+          })
+        }
+
+        const locale = typeof body?.locale === 'string' ? body.locale : undefined
+        const preferredLocales = locale ? [locale, 'de', 'en'] : ['de', 'en']
+
+        try {
+          const preview = await getRestorePreviewForAdminRestore(payload, url, {
+            preferredLocales,
+            backupRead: backupRead ?? undefined,
+          })
+          return Response.json(preview)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Preview failed'
+          payload.logger.error({ err: error, url }, '[backup-endpoint] Restore preview failed')
+          return Response.json({ error: message }, { status: 422 })
+        }
+      },
+    },
+  ]
+}

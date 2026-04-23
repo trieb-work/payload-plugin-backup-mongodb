@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "rootDir": "./",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "target": "ES2022",
+    "noEmit": true,
+    "paths": {
+      "@payload-config": ["./dev/payload.config.ts"],
+      "@trieb.work/payload-plugin-backup-mongodb": ["./src/index.ts"],
+      "@trieb.work/payload-plugin-backup-mongodb/client": ["./src/exports/client.ts"],
+      "@trieb.work/payload-plugin-backup-mongodb/rsc": ["./src/exports/rsc.ts"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*.tsx",
+    "./dev/**/*.ts",
+    "./dev/**/*.tsx",
+    "./dev/**/*.js",
+    "./dev/**/*.jsx",
+    "./dev/**/*.mjs",
+    "./tests/**/*.ts",
+    "./dev/next-env.d.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}
