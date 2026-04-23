@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "incremental": false,
+    "composite": false,
+    "paths": {
+      "@trieb.work/payload-plugin-backup-mongodb": ["./src/index.ts"],
+      "@trieb.work/payload-plugin-backup-mongodb/client": ["./src/exports/client.ts"],
+      "@trieb.work/payload-plugin-backup-mongodb/rsc": ["./src/exports/rsc.ts"]
+    }
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./src/**/*.d.ts"],
+  "exclude": ["dist", "node_modules", "tests", "dev"]
+}
