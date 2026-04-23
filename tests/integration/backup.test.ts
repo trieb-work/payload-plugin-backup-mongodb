@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createBackup, listBackups, createMediaBackupFile } from '../src/core/backup.js'
-import type { MongoDb } from '../src/core/db.js'
+import { createBackup, listBackups, createMediaBackupFile } from '../../src/core/backup.js'
+import type { MongoDb } from '../../src/core/db.js'
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
@@ -48,15 +48,17 @@ const mockPayload = {
       db: mockDb,
     },
   },
+  find: vi.fn().mockResolvedValue({ docs: [] }),
   logger: mockLogger,
 } as any
 
 describe('listBackups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.BLOB_READ_WRITE_TOKEN = 'env-test-token'
   })
 
-  it('returns blobs from the backups/ prefix', async () => {
+  it('returns blobs from the backups/ prefix (token from env via settings + resolve)', async () => {
     const mockBlobs = [
       {
         pathname: 'backups/manual---db---host---123.json',
@@ -69,17 +71,33 @@ describe('listBackups', () => {
     ]
     vi.mocked(list).mockResolvedValue({ blobs: mockBlobs, cursor: undefined, hasMore: false })
 
-    const blobs = await listBackups()
+    const blobs = await listBackups(mockPayload)
 
-    expect(list).toHaveBeenCalledWith({ prefix: 'backups/', limit: 1000 })
+    expect(list).toHaveBeenCalledWith({
+      prefix: 'backups/',
+      limit: 1000,
+      token: 'env-test-token',
+    })
     expect(blobs).toEqual(mockBlobs)
   })
 
   it('returns empty array when no backups exist', async () => {
     vi.mocked(list).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false })
 
-    const blobs = await listBackups()
+    const blobs = await listBackups(mockPayload)
     expect(blobs).toEqual([])
+  })
+
+  it('returns empty array when no blob token can be resolved', async () => {
+    const prev = process.env.BLOB_READ_WRITE_TOKEN
+    delete process.env.BLOB_READ_WRITE_TOKEN
+    vi.mocked(list).mockReset()
+
+    const blobs = await listBackups(mockPayload)
+
+    expect(blobs).toEqual([])
+    expect(list).not.toHaveBeenCalled()
+    if (prev !== undefined) process.env.BLOB_READ_WRITE_TOKEN = prev
   })
 })
 
@@ -141,6 +159,31 @@ describe('createBackup', () => {
     expect(mockDb.listCollections).toHaveBeenCalled()
     expect(mockDb.collection).toHaveBeenCalledWith('pages')
     expect(mockDb.collection).toHaveBeenCalledWith('users')
+  })
+
+  it('includes the sanitized label in the uploaded blob pathname', async () => {
+    vi.mocked(put).mockResolvedValue({ url: 'https://blob.com/test.json' } as any)
+
+    await createBackup(mockPayload, {
+      cron: false,
+      includeMedia: false,
+      label: '  Pre release   snapshot ',
+    })
+
+    const [name] = vi.mocked(put).mock.calls[0]
+    expect(name).toMatch(/^backups\/manual---/)
+    expect(name).toContain(`---${encodeURIComponent('Pre release snapshot')}.json`)
+  })
+
+  it('ignores the label on cron backups', async () => {
+    vi.mocked(list).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false })
+    vi.mocked(put).mockResolvedValue({ url: 'https://blob.com/test.json' } as any)
+
+    await createBackup(mockPayload, { cron: true, includeMedia: false, label: 'ignored' })
+
+    const [name] = vi.mocked(put).mock.calls[0]
+    expect(name).not.toContain(encodeURIComponent('ignored'))
+    expect(name).toMatch(/---\d+-\d{10,}\.json$/)
   })
 
   it('throws when db adapter is not mongoose', async () => {

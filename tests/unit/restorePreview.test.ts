@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCollectionPreviewGroups, buildRestorePreviewGroups } from '../src/core/restorePreview.js'
+import { buildCollectionPreviewGroups, buildRestorePreviewGroups } from '../../src/core/restorePreview.js'
 
 const mockPayload = {
   config: {

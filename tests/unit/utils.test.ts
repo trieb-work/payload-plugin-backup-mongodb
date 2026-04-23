@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { createBlobName, getBackupSortTimeMs, transformBlobName } from '../src/utils/blobName.js'
-import { formatBytes } from '../src/utils/formatBytes.js'
-import { getCurrentDbName, getCurrentHostname } from '../src/utils/hostname.js'
+import {
+  BACKUP_LABEL_MAX_LENGTH,
+  createBlobName,
+  getBackupSortTimeMs,
+  sanitizeBackupLabel,
+  transformBlobName,
+} from '../../src/utils/blobName.js'
+import { formatBytes } from '../../src/utils/formatBytes.js'
+import { getCurrentDbName, getCurrentHostname } from '../../src/utils/hostname.js'
 
 describe('createBlobName', () => {
   it('creates a json blob name with collection count and timestamp', () => {
@@ -37,6 +43,55 @@ describe('createBlobName', () => {
     expect(name).toContain(encodeURIComponent('host.com/my db'))
     expect(name).toContain(encodeURIComponent('my.host.com'))
     expect(name).toMatch(/---3-1\.json$/)
+  })
+
+  it('appends an encoded label segment when a label is provided', () => {
+    const name = createBlobName(
+      'manual',
+      'localhost/mydb',
+      'example.com',
+      5,
+      1_700_000_000_000,
+      'json',
+      'pre release snapshot',
+    )
+    expect(name).toBe(
+      `manual---${encodeURIComponent('localhost/mydb')}---${encodeURIComponent('example.com')}---5-1700000000000---${encodeURIComponent('pre release snapshot')}.json`,
+    )
+  })
+
+  it('omits the label segment when label is empty or whitespace', () => {
+    const a = createBlobName('manual', 'db', 'h', 1, 1700000000000, 'json', '')
+    const b = createBlobName('manual', 'db', 'h', 1, 1700000000000, 'json', '   ')
+    const c = createBlobName('manual', 'db', 'h', 1, 1700000000000, 'json')
+    expect(a).toBe(c)
+    expect(b).toBe(c)
+    expect(a).not.toMatch(/---[^-]+\.json$/)
+  })
+})
+
+describe('sanitizeBackupLabel', () => {
+  it('trims and collapses whitespace', () => {
+    expect(sanitizeBackupLabel('  pre  release   v1 ')).toBe('pre release v1')
+  })
+
+  it('returns empty string for non-strings or empty input', () => {
+    expect(sanitizeBackupLabel(undefined)).toBe('')
+    expect(sanitizeBackupLabel(null)).toBe('')
+    expect(sanitizeBackupLabel(123)).toBe('')
+    expect(sanitizeBackupLabel('')).toBe('')
+    expect(sanitizeBackupLabel('   ')).toBe('')
+  })
+
+  it('collapses hyphen runs so the separator cannot appear inside the label', () => {
+    expect(sanitizeBackupLabel('a---b')).toBe('a-b')
+    expect(sanitizeBackupLabel('a----b--c')).toBe('a-b-c')
+  })
+
+  it('caps the label length', () => {
+    const long = 'x'.repeat(BACKUP_LABEL_MAX_LENGTH + 20)
+    const out = sanitizeBackupLabel(long)
+    expect(out.length).toBe(BACKUP_LABEL_MAX_LENGTH)
   })
 })
 
@@ -104,6 +159,39 @@ describe('transformBlobName', () => {
     expect(parsed.date).toBe('1717000000000')
     expect(parsed.collectionCount).toBe(11)
     expect(parsed.fileType).toBe('json')
+    expect(parsed.label).toBeUndefined()
+  })
+
+  it('parses the optional label segment on new-format names', () => {
+    const original = createBlobName(
+      'manual',
+      'localhost/mydb',
+      'example.com',
+      7,
+      1_710_000_000_000,
+      'tar.gz',
+      'Pre release snapshot',
+    )
+    const parsed = transformBlobName(`backups/${original}`)
+    expect(parsed.label).toBe('Pre release snapshot')
+    expect(parsed.type).toBe('manual')
+    expect(parsed.collectionCount).toBe(7)
+    expect(parsed.date).toBe('1710000000000')
+    expect(parsed.fileType).toBe('tar.gz')
+  })
+
+  it('round-trips labels with URL-reserved characters', () => {
+    const label = 'Release #42 – v1.0 / QA'
+    const original = createBlobName('manual', 'db', 'h', 1, 1_700_000_000_000, 'json', label)
+    const parsed = transformBlobName(`backups/${original}`)
+    expect(parsed.label).toBe(label)
+  })
+
+  it('keeps existing (unlabelled) blob names parsing the same', () => {
+    const blobName = `backups/manual---${encodeURIComponent('db')}---${encodeURIComponent('h')}---5-1700000000000.json`
+    const parsed = transformBlobName(blobName)
+    expect(parsed.label).toBeUndefined()
+    expect(parsed.collectionCount).toBe(5)
   })
 })
 

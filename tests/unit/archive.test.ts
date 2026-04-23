@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createTarGzip, resolveTarGzip } from '../src/core/archive.js'
+import { createTarGzip, resolveTarGzip } from '../../src/core/archive.js'
 
 describe('createTarGzip', () => {
   it('creates a non-empty buffer', async () => {

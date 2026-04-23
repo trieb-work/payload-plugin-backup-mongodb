@@ -29,6 +29,7 @@ export interface BackupListCollapsibleProps {
 interface BackupListFilterState {
   dateFrom: string
   dateTo: string
+  label: string
   media: 'all' | 'with' | 'without'
   source: 'all' | 'manual' | 'cron'
   showOtherDb: boolean
@@ -38,6 +39,7 @@ interface BackupListFilterState {
 const defaultFilterState: BackupListFilterState = {
   dateFrom: '',
   dateTo: '',
+  label: '',
   media: 'all',
   source: 'all',
   showOtherDb: true,
@@ -77,6 +79,11 @@ function passesDateMediaSource(
   if (filters.media === 'without' && parsed.fileType !== 'json') return false
   if (filters.source === 'manual' && parsed.type !== 'manual') return false
   if (filters.source === 'cron' && parsed.type !== 'cron') return false
+  const labelQuery = filters.label.trim().toLowerCase()
+  if (labelQuery) {
+    const blobLabel = (parsed.label ?? '').toLowerCase()
+    if (!blobLabel.includes(labelQuery)) return false
+  }
   return true
 }
 
@@ -84,6 +91,7 @@ function hasNonDefaultFilters(f: BackupListFilterState): boolean {
   return (
     f.dateFrom !== defaultFilterState.dateFrom ||
     f.dateTo !== defaultFilterState.dateTo ||
+    f.label !== defaultFilterState.label ||
     f.media !== defaultFilterState.media ||
     f.source !== defaultFilterState.source ||
     f.showOtherDb !== defaultFilterState.showOtherDb ||
@@ -179,7 +187,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
           <p className="backup-dashboard__list-empty">No backups match the current filters</p>
         ) : (
           visibleRows.map(({ blob, parsed, displayAt }) => {
-            const { type, dbName, hostname, fileType, collectionCount } = parsed
+            const { type, dbName, hostname, fileType, collectionCount, label } = parsed
             const isCurrentDb = currentDbName === dbName
             const isCurrentHostname = currentHostname === hostname
 
@@ -199,10 +207,19 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                     >
                       {type === 'cron' ? 'Cron backup' : 'Manual backup'}
                     </span>
+                    {label ? (
+                      <span
+                        className="backup-item__pill backup-item__pill--label"
+                        title={`Label: ${label}`}
+                      >
+                        <span className="backup-item__pill-key">Label</span>
+                        {label}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="backup-item__meta">
                     <span
-                      className={`backup-item__pill backup-item__pill--db${isCurrentDb ? '' : 'backup-item__pill--warn'}`}
+                      className={`backup-item__pill backup-item__pill--db${isCurrentDb ? '' : ' backup-item__pill--warn'}`}
                     >
                       <span className="backup-item__pill-key">
                         {isCurrentDb ? 'DB' : 'other DB'}
@@ -210,7 +227,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                       {dbName || 'Unknown'}
                     </span>
                     <span
-                      className={`backup-item__pill backup-item__pill--host${isCurrentHostname ? '' : 'backup-item__pill--warn'}`}
+                      className={`backup-item__pill backup-item__pill--host${isCurrentHostname ? '' : ' backup-item__pill--warn'}`}
                     >
                       <span className="backup-item__pill-key">Host</span>
                       {hostname || 'Unknown'}
@@ -299,6 +316,25 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
               ) : null}
             </fieldset>
           ) : null}
+
+          <fieldset className="backup-list-filters__fieldset">
+            <legend className="backup-list-filters__legend">Label</legend>
+            <div className="backup-list-filters__row backup-list-filters__row--label">
+              <label className="backup-list-filters__label" htmlFor={`${uid}-label`}>
+                Search
+              </label>
+              <input
+                autoComplete="off"
+                className="backup-list-filters__text"
+                id={`${uid}-label`}
+                onChange={(e) => setFilters((f) => ({ ...f, label: e.target.value }))}
+                placeholder="Filter by label text"
+                spellCheck={false}
+                type="text"
+                value={filters.label}
+              />
+            </div>
+          </fieldset>
 
           <fieldset className="backup-list-filters__fieldset">
             <legend className="backup-list-filters__legend">Date range</legend>

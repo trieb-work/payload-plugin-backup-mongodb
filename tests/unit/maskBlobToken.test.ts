@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { maskBlobReadWriteToken, shouldPreserveBackupBlobTokenField } from '../src/utils/maskBlobToken.js'
+import { maskBlobReadWriteToken, shouldPreserveBackupBlobTokenField } from '../../src/utils/maskBlobToken.js'
 
 describe('maskBlobReadWriteToken', () => {
   it('returns empty for blank', () => {

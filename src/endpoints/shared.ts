@@ -2,13 +2,24 @@ import type { PayloadRequest } from 'payload'
 
 import type { BackupPluginOptions } from '../types.js'
 
+import { isUserAllowedByEnvRoles } from '../utils/dashboardRoleAccess.js'
+
 export async function readRequestJson(req: PayloadRequest): Promise<unknown> {
   return (req as unknown as Request).json() as Promise<unknown>
 }
 
+/**
+ * Canonical JSON error response for admin-facing endpoints. The dashboard clients
+ * always parse responses as JSON, so plain-text bodies would crash `await res.json()`
+ * with `Unexpected token ... is not valid JSON`.
+ */
+export function jsonError(message: string, status: number): Response {
+  return Response.json({ error: message }, { status })
+}
+
 export function requireBlobEnv(): Response | null {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return new Response('Service unavailable', { status: 503 })
+    return jsonError('Service unavailable', 503)
   }
   return null
 }
@@ -38,12 +49,10 @@ export async function getAuthorizedBackupAdmin(
   if (options.access) {
     return options.access(user) ? user : null
   }
-  const roles = user.roles as Array<string | { slug?: string }> | undefined
-  if (!roles?.length) return null
-  const ok = roles.some((role) =>
-    typeof role === 'string' ? role === 'admin' : role?.slug === 'admin',
-  )
-  return ok ? user : null
+  // Default access check stays in sync with the dashboard visibility rule:
+  // driven by `PAYLOAD_BACKUP_ALLOWED_ROLES` with backwards-compatible defaults
+  // (admin role required when roles exist, or allow when the project has no roles field).
+  return isUserAllowedByEnvRoles(user) ? user : null
 }
 
 export async function requireBackupAdmin(
@@ -53,7 +62,7 @@ export async function requireBackupAdmin(
   // Security gate for admin routes: request must resolve to an authorized backup admin user.
   const user = await getAuthorizedBackupAdmin(req, options)
   if (!user) {
-    return new Response('Unauthorized', { status: 401 })
+    return jsonError('Unauthorized', 401)
   }
   return user
 }

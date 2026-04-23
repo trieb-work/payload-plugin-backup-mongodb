@@ -7,7 +7,7 @@ vi.mock('@vercel/blob', () => ({
   put: (...args: unknown[]) => putMock(...args),
 }))
 
-import { validateBackupBlobToken } from '../src/core/blobTokenValidate.js'
+import { validateBackupBlobToken } from '../../src/core/blobTokenValidate.js'
 
 beforeEach(() => {
   putMock.mockReset()

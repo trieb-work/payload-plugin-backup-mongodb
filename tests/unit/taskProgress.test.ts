@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pollSecretsMatch, stripPollSecretForClient } from '../src/core/taskProgress.js'
+import { pollSecretsMatch, stripPollSecretForClient } from '../../src/core/taskProgress.js'
 
 describe('taskProgress', () => {
   it('pollSecretsMatch accepts equal secrets', () => {

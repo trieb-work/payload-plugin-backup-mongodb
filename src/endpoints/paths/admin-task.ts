@@ -2,7 +2,7 @@ import type { Endpoint } from 'payload'
 
 import { getBackupTask, pollSecretsMatch, stripPollSecretForClient } from '../../core/taskProgress.js'
 import type { BackupPluginOptions } from '../../types.js'
-import { getAuthorizedBackupAdmin } from '../shared.js'
+import { getAuthorizedBackupAdmin, jsonError } from '../shared.js'
 
 export function createAdminTaskEndpoint(options: BackupPluginOptions): Endpoint {
   return {
@@ -12,13 +12,13 @@ export function createAdminTaskEndpoint(options: BackupPluginOptions): Endpoint 
       const { payload } = req
       const id = req.routeParams?.id
       if (typeof id !== 'string' || !id) {
-        return new Response('Not found', { status: 404 })
+        return jsonError('Not found', 404)
       }
 
       const task = await getBackupTask(payload, id)
 
       if (!task) {
-        return new Response('Not found', { status: 404 })
+        return jsonError('Not found', 404)
       }
 
       const url = new URL((req as unknown as Request).url)
@@ -33,7 +33,7 @@ export function createAdminTaskEndpoint(options: BackupPluginOptions): Endpoint 
       if (!pollOk) {
         const user = await getAuthorizedBackupAdmin(req, options)
         if (!user) {
-          return new Response('Unauthorized', { status: 401 })
+          return jsonError('Unauthorized', 401)
         }
       }
 

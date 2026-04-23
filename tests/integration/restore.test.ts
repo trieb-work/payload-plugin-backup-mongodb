@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { restoreBackup } from '../src/core/restore.js'
-import type { MongoDb } from '../src/core/db.js'
+import { restoreBackup } from '../../src/core/restore.js'
+import type { MongoDb } from '../../src/core/db.js'
 import { EJSON } from 'bson'
 
 vi.mock('@vercel/blob', () => ({
@@ -16,7 +16,7 @@ vi.mock('node:fs/promises', () => ({
   },
 }))
 
-vi.mock('../src/core/taskProgress', () => ({
+vi.mock('../../src/core/taskProgress', () => ({
   updateBackupTask: vi.fn().mockResolvedValue(undefined),
 }))
 

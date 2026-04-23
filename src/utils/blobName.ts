@@ -9,6 +9,9 @@ const NEW_NAME_TAIL = /^(\d+)-(\d{10,})$/
 
 const NEW_TAIL_MAX_COLLECTIONS = 100_000
 
+/** Max length for a user-supplied manual backup label (after sanitization). */
+export const BACKUP_LABEL_MAX_LENGTH = 64
+
 function isPlausibleNewFormatTail(collectionCount: number, timestampMs: number): boolean {
   return (
     Number.isFinite(collectionCount) &&
@@ -20,12 +23,29 @@ function isPlausibleNewFormatTail(collectionCount: number, timestampMs: number):
   )
 }
 
+/**
+ * Normalize a user-supplied manual backup label so it is safe to embed as a
+ * blob-name segment. Trims, collapses whitespace, removes characters that would
+ * confuse the separator, and enforces {@link BACKUP_LABEL_MAX_LENGTH}.
+ * Returns an empty string when nothing usable remains.
+ */
+export function sanitizeBackupLabel(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  const collapsed = raw.replace(/\s+/g, ' ').trim()
+  if (!collapsed) return ''
+  // The blob-name separator is three hyphens; collapse any hyphen run in the
+  // label to a single hyphen so round-trip parsing stays unambiguous.
+  const deHyphen = collapsed.replace(/-{2,}/g, '-')
+  return deHyphen.slice(0, BACKUP_LABEL_MAX_LENGTH).trim()
+}
+
 export interface TransformBlobNameResult {
   collectionCount?: number
   date: string
   dbName: string
   fileType: 'json' | 'tar.gz' | 'na'
   hostname: string
+  label?: string
   type: string
 }
 
@@ -35,11 +55,20 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
     : blobName.endsWith('tar.gz')
       ? 'tar.gz'
       : 'na'
-  const [type = '', dbName = '', hostname = '', last = ''] = blobName
-    .replace('.json', '')
-    .replace('.tar.gz', '')
-    .replace('backups/', '')
+  const [type = '', dbName = '', hostname = '', last = '', labelEncoded = ''] = blobName
+    .replace(/\.(?:json|tar\.gz)$/, '')
+    .replace(/^backups\//, '')
     .split(SEPARATOR)
+
+  let label: string | undefined
+  if (labelEncoded) {
+    try {
+      const decoded = decodeURIComponent(labelEncoded)
+      if (decoded) label = decoded
+    } catch {
+      label = labelEncoded
+    }
+  }
 
   const m = NEW_NAME_TAIL.exec(last)
   if (m) {
@@ -52,6 +81,7 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
         dbName: decodeURIComponent(dbName),
         fileType,
         hostname: decodeURIComponent(hostname),
+        label,
         type,
       }
     }
@@ -62,6 +92,7 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
     dbName: decodeURIComponent(dbName),
     fileType,
     hostname: decodeURIComponent(hostname),
+    label,
     type,
   }
 }
@@ -69,6 +100,8 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
 /**
  * Backup blob pathname segment (without `backups/` prefix or extension).
  * New format: `{collectionCount}-{timestampMs}` encodes included collection count + backup time.
+ * When a non-empty `label` is supplied it is appended as a separate URL-encoded segment
+ * (`---{encodedLabel}`) so older parsers that only read the first 4 segments still work.
  */
 export function createBlobName(
   type: string,
@@ -77,9 +110,12 @@ export function createBlobName(
   collectionCount: number,
   timestampMs: number,
   fileType: 'json' | 'tar.gz',
+  label?: string,
 ): string {
   const tail = `${Math.max(0, Math.floor(collectionCount))}-${Math.floor(timestampMs)}`
-  return `${type}${SEPARATOR}${encodeURIComponent(dbName)}${SEPARATOR}${encodeURIComponent(hostname)}${SEPARATOR}${tail}.${fileType}`
+  const sanitizedLabel = sanitizeBackupLabel(label)
+  const labelSegment = sanitizedLabel ? `${SEPARATOR}${encodeURIComponent(sanitizedLabel)}` : ''
+  return `${type}${SEPARATOR}${encodeURIComponent(dbName)}${SEPARATOR}${encodeURIComponent(hostname)}${SEPARATOR}${tail}${labelSegment}.${fileType}`
 }
 
 /**

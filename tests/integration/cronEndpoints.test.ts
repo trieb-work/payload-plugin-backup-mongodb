@@ -11,8 +11,8 @@
 import { after } from 'next/server'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 
-import { createBackupMongodbEndpoints } from '../src/endpoints/index.js'
-import { createCronRunEndpoint } from '../src/endpoints/paths/cron-run.js'
+import { createBackupMongodbEndpoints } from '../../src/endpoints/index.js'
+import { createCronRunEndpoint } from '../../src/endpoints/paths/cron-run.js'
 
 /** Next `after` accepts a Promise or work function; the handler passes a Promise. */
 vi.mock('next/server', () => ({
@@ -21,11 +21,11 @@ vi.mock('next/server', () => ({
   }),
 }))
 
-vi.mock('../src/core/backup', () => ({
+vi.mock('../../src/core/backup', () => ({
   createBackup: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock('../src/core/backupSettings', () => ({
+vi.mock('../../src/core/backupSettings', () => ({
   getResolvedCronBackupSettings: vi.fn(() =>
     Promise.resolve({
       backupBlobAccess: null,
@@ -102,7 +102,7 @@ describe('cron backup endpoints', () => {
     process.env.BLOB_READ_WRITE_TOKEN = 'blob-token'
     process.env.CRON_SECRET = 'expected-secret'
     try {
-      const { createBackup } = await import('../src/core/backup.js')
+      const { createBackup } = await import('../../src/core/backup.js')
       const ep = createCronRunEndpoint({ backupsToKeep: 7 })
       const res = await ep.handler({
         headers: new Headers({ authorization: 'Bearer expected-secret' }),

@@ -12,7 +12,7 @@ import {
   readBackupBlobContentFlexible,
   streamBackupBlobForDownload,
   vercelBlobPathnameFromUrl,
-} from '../src/core/backupBlobIO.js'
+} from '../../src/core/backupBlobIO.js'
 
 const originalFetch = globalThis.fetch
 const fetchMock = vi.fn()
