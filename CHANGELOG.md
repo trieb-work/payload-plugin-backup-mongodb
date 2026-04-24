@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+### Patch Changes
+
+- 8df3a9c: update CI
+
 ## 0.1.1
 
 ### Patch Changes
