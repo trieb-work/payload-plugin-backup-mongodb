@@ -101,6 +101,8 @@ Newly covered P1 (must-have) user flows:
 - [x] **P1** — Manual backup dialog surfaces a "Service unavailable" message when the `/admin/manual` endpoint returns 503 (mocked via `page.route`) (`tests/e2e/manual-backup-dialog.spec.ts`).
 - [x] **P1** — Backup settings modal opens, renders the schedule + retention + token sections with a mocked settings payload, and closes via Cancel (`tests/e2e/backup-settings-modal.spec.ts`).
 - [x] **P1** — Backup list Collapsible expands on click, opens the Filters dialog (label + date + media + source controls), and Done + Clear filters both work (`tests/e2e/backup-list-filters.spec.ts`).
+- [ ] **P1** — Test that non-admin users (editors) will not get backup widget displayed in admin dashboard (when enabled).
+- [ ] **P1** — Test backup retention by triggering multiple cron backups via API directly.
 
 Env-gated roundtrip coverage (run automatically when `BLOB_READ_WRITE_TOKEN` is set):
 
