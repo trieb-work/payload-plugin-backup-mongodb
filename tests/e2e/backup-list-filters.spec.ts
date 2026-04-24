@@ -1,21 +1,8 @@
-import type { Page } from '@playwright/test'
-
 import { expect, test } from '@playwright/test'
 
-import { openBackupDashboard } from './helpers'
+import { expandBackupList, openBackupDashboard } from './helpers'
 
 const FILTERS_DIALOG = 'dialog.backup-confirm-dialog--backup-list-filters'
-
-/**
- * Click the Collapsible's chevron button inside the Backup dashboard. Payload's
- * `Collapsible` only wires `toggleCollapsible` onto `.collapsible__toggle`, not the
- * whole header, so clicking the title text would not be enough.
- */
-async function expandBackupList(page: Page): Promise<void> {
-  const toggle = page.locator('.backup-dashboard .collapsible__toggle').first()
-  await toggle.click()
-  await expect(page.locator('.backup-dashboard .collapsible--collapsed')).toHaveCount(0)
-}
 
 test.describe('Backup list filters (dev app)', () => {
   test('Collapsible expands on click', async ({ page }) => {
