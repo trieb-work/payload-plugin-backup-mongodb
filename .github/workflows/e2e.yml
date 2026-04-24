@@ -42,15 +42,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -60,7 +60,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Cache Next.js build (dev app)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: dev/.next/cache
           key: ${{ runner.os }}-next-dev-${{ hashFiles('pnpm-lock.yaml', 'dev/next.config.mjs', 'dev/app/**', 'dev/payload.config.ts', 'package.json') }}
@@ -81,7 +81,7 @@ jobs:
         run: pnpm run test:e2e
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
