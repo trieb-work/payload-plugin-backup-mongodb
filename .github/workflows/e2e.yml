@@ -73,11 +73,16 @@ jobs:
       - name: Build dev Next app
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: pnpm run build:dev
 
       - name: Run Playwright E2E
         env:
+          # Both needed for the env-gated roundtrip specs
+          # (tests/e2e/backup-create-restore.spec.ts, tests/e2e/cron-trigger.spec.ts).
+          # When either secret is missing, the relevant tests self-skip.
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: pnpm run test:e2e
 
       - name: Upload Playwright report
