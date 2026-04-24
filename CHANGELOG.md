@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+### Patch Changes
+
+- ab78496: update e2e UI
+
 ## 0.1.2
 
 ### Patch Changes
