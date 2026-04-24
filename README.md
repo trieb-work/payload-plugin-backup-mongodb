@@ -238,12 +238,8 @@ Authorization: Bearer <CRON_SECRET>
 
 For scripts, hooks, and tests:
 
-````ts
-import {
-  createBackup,
-  listBackups,
-  restoreBackup
-} from '@trieb.work/payload-plugin-backup-mongodb'
+```ts
+import { createBackup, listBackups, restoreBackup } from '@trieb.work/payload-plugin-backup-mongodb'
 
 // Example: manual backup from a one-off script
 await createBackup(payload, { cron: false, includeMedia: true })
@@ -261,11 +257,11 @@ const blobs = await listBackups(payload)
 
 ### Blob naming
 
-````
+```
 
 backups/{type}---{dbName}---{hostname}---{collectionCount}-{timestampMs}.{json|tar.gz}
 
-````
+```
 
 - `type`: `cron` or `manual` (and legacy-style labels where applicable).
 - `dbName` / `hostname`: derived from your MongoDB URL and public server URL; URL-encoded in the name.
@@ -285,9 +281,15 @@ To keep backups in a **different** Vercel Blob project than media, open **Backup
 
 ```bash
 pnpm test:int
-````
+```
 
 The repo includes a `dev/` Payload + Next app (MongoDB Memory Server, etc.): `pnpm dev` → `http://localhost:3000/admin` (use credentials from the `dev/` app if documented there). In unit tests, external services like `@vercel/blob` and `bson` are often mocked with `vi.mock()`.
+
+---
+
+## Publishing (npm)
+
+Versioning uses [Changesets](https://github.com/changesets/changesets), like [Payblocks](https://github.com/trieb-work/payblocks): add a file with `pnpm changeset`, open a PR to `main`, and merge. The **Release** workflow opens a “version packages” PR or runs `pnpm run release` (`build` + `changeset publish`) when the set of changesets is ready. PRs need a new `.changeset/*.md` unless you add the **`no-changeset`** label (e.g. docs-only).
 
 ---
 

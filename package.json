@@ -2,6 +2,10 @@
   "name": "@trieb.work/payload-plugin-backup-mongodb",
   "version": "0.1.0",
   "description": "Payload CMS plugin for MongoDB backup and recovery via Vercel Blob Storage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/trieb-work/payload-plugin-backup-mongodb.git"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -50,7 +54,10 @@
     "lint:fix": "eslint ./src --fix",
     "test": "pnpm test:int && pnpm test:e2e",
     "test:int": "vitest run",
+    "test:int:cov": "vitest run --coverage",
     "test:int:watch": "vitest",
+    "changeset": "changeset",
+    "release": "pnpm run build && changeset publish",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
@@ -77,11 +84,13 @@
     "@payloadcms/ui": "3.82.1",
     "@playwright/test": "1.58.2",
     "@swc-node/register": "1.10.9",
+    "@changesets/cli": "^2.29.8",
     "@swc/cli": "0.6.0",
     "@types/node": "22.19.9",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@types/tar-stream": "^3.1.4",
+    "@vitest/coverage-v8": "^4.1.5",
     "copyfiles": "2.4.1",
     "cross-env": "^7.0.3",
     "eslint": "^9.23.0",
@@ -96,18 +105,19 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "rimraf": "3.0.2",
-    "sharp": "0.34.2",
     "sass": "^1.85.0",
+    "sharp": "0.34.2",
     "sort-package-json": "^2.10.0",
     "typescript": "5.7.3",
     "vite-tsconfig-paths": "6.0.5",
-    "vitest": "4.0.18"
+    "vitest": "4.1.5"
   },
   "engines": {
     "node": "^18.20.2 || >=20.9.0",
     "pnpm": "^9 || ^10"
   },
   "publishConfig": {
+    "access": "public",
     "exports": {
       ".": {
         "import": "./dist/index.js",
