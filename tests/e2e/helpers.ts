@@ -9,3 +9,13 @@ export async function loginAsDevUser(page: Page): Promise<void> {
   await page.waitForURL(/\/admin/)
   await page.waitForSelector('.modular-dashboard')
 }
+
+/**
+ * Logs in as the dev user and waits for the Backup dashboard section to be mounted.
+ * Most plugin UI tests start from here.
+ */
+export async function openBackupDashboard(page: Page): Promise<void> {
+  await loginAsDevUser(page)
+  await page.goto('/admin')
+  await page.waitForSelector('.backup-dashboard', { timeout: 60_000 })
+}

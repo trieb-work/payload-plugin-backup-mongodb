@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const putMock = vi.fn()
 vi.mock('@vercel/blob', () => ({
@@ -65,15 +65,15 @@ describe('streamBackupBlobForDownload', () => {
     const downloadUrl =
       'https://sid.private.blob.vercel-storage.com/backups/f.json?download=1'
     fetchMock.mockResolvedValueOnce({
-      ok: true,
       body: new ReadableStream(),
       headers: new Headers({ 'content-type': 'application/json' }),
+      ok: true,
     })
     const r = await streamBackupBlobForDownload({
-      pathname: 'backups/f.json',
-      token: 'tok',
-      preferredAccess: 'private',
       downloadUrl,
+      pathname: 'backups/f.json',
+      preferredAccess: 'private',
+      token: 'tok',
     })
     expect(r?.contentType).toBe('application/json')
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -87,15 +87,15 @@ describe('streamBackupBlobForDownload', () => {
     const downloadUrl =
       'https://sid.private.blob.vercel-storage.com/backups/manual---localhost%252Fdemo---localhost---21-1776865188117.json?download=1'
     fetchMock.mockResolvedValueOnce({
-      ok: true,
       body: new ReadableStream(),
       headers: new Headers(),
+      ok: true,
     })
     const r = await streamBackupBlobForDownload({
-      pathname,
-      token: 'tok',
-      preferredAccess: 'private',
       downloadUrl,
+      pathname,
+      preferredAccess: 'private',
+      token: 'tok',
     })
     expect(r).not.toBeNull()
     expect(fetchMock.mock.calls[0][0]).toBe(downloadUrl)
@@ -103,10 +103,10 @@ describe('streamBackupBlobForDownload', () => {
 
   it('returns null when no trusted blob URL is provided', async () => {
     const r = await streamBackupBlobForDownload({
-      pathname: 'backups/g.tar.gz',
-      token: 'tok',
-      preferredAccess: 'private',
       blobUrl: 'https://evil.com/backups/g.tar.gz',
+      pathname: 'backups/g.tar.gz',
+      preferredAccess: 'private',
+      token: 'tok',
     })
     expect(r).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
@@ -117,14 +117,14 @@ describe('readBackupBlobContent', () => {
   it('fetches the download URL with Bearer auth', async () => {
     const downloadUrl = 'https://sid.private.blob.vercel-storage.com/backups/x.json?download=1'
     fetchMock.mockResolvedValueOnce({
-      ok: true,
       arrayBuffer: async () => new TextEncoder().encode('hello').buffer,
+      ok: true,
     })
     const buf = await readBackupBlobContent({
-      pathname: 'backups/x.json',
-      downloadUrl,
-      token: 'tok',
       access: 'private',
+      downloadUrl,
+      pathname: 'backups/x.json',
+      token: 'tok',
     })
     expect(buf.toString()).toBe('hello')
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined]
@@ -136,10 +136,10 @@ describe('readBackupBlobContent', () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 401 })
     await expect(
       readBackupBlobContent({
-        pathname: 'backups/x.json',
-        downloadUrl: 'https://sid.private.blob.vercel-storage.com/backups/x.json',
-        token: 'tok',
         access: 'private',
+        downloadUrl: 'https://sid.private.blob.vercel-storage.com/backups/x.json',
+        pathname: 'backups/x.json',
+        token: 'tok',
       }),
     ).rejects.toThrow(/HTTP 401/)
   })
@@ -150,8 +150,8 @@ describe('readBackupBlobContentFlexible', () => {
     const downloadUrl =
       'https://sid.private.blob.vercel-storage.com/backups/f.json?download=1'
     fetchMock.mockResolvedValueOnce({
-      ok: true,
       arrayBuffer: async () => new TextEncoder().encode('payload').buffer,
+      ok: true,
     })
     const buf = await readBackupBlobContentFlexible('backups/f.json', downloadUrl, 'tok')
     expect(buf.toString()).toBe('payload')
@@ -165,8 +165,8 @@ describe('readBackupBlobContentFlexible', () => {
       status: 500,
     })
     fetchMock.mockResolvedValueOnce({
-      ok: true,
       arrayBuffer: async () => new TextEncoder().encode('legacy').buffer,
+      ok: true,
     })
     const buf = await readBackupBlobContentFlexible(
       'backups/legacy.json',
@@ -199,8 +199,8 @@ describe('putBackupBlobContent', () => {
     expect(putMock).toHaveBeenCalledTimes(1)
     expect(putMock.mock.calls[0][2]).toMatchObject({
       access: 'private',
-      allowOverwrite: true,
       addRandomSuffix: false,
+      allowOverwrite: true,
     })
   })
 

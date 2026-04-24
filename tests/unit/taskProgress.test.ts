@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { pollSecretsMatch, stripPollSecretForClient } from '../../src/core/taskProgress.js'
 
 describe('taskProgress', () => {
@@ -20,8 +21,8 @@ describe('taskProgress', () => {
 
   it('stripPollSecretForClient removes pollSecret', () => {
     const stripped = stripPollSecretForClient({
-      createdAt: 'x',
       id: '1',
+      createdAt: 'x',
       kind: 'restore',
       message: 'm',
       pollSecret: 'secret',

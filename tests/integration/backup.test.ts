@@ -1,45 +1,48 @@
 import type { Payload } from 'payload'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createBackup, listBackups, createMediaBackupFile } from '../../src/core/backup.js'
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { MongoDb } from '../../src/core/db.js'
 
+import { createBackup, createMediaBackupFile, listBackups } from '../../src/core/backup.js'
+
 vi.mock('@vercel/blob', () => ({
+  del: vi.fn(),
   list: vi.fn(),
   put: vi.fn(),
-  del: vi.fn(),
 }))
 
 vi.mock('bson', () => ({
   EJSON: {
-    stringify: vi.fn((data) => JSON.stringify(data)),
     parse: vi.fn((data) => JSON.parse(data)),
+    stringify: vi.fn((data) => JSON.stringify(data)),
   },
 }))
 
-import { list, put, del } from '@vercel/blob'
+import { del, list, put } from '@vercel/blob'
 
 const mockDb: MongoDb = {
-  listCollections: vi.fn().mockReturnValue({
-    toArray: vi.fn().mockResolvedValue([{ name: 'pages' }, { name: 'users' }]),
-  }),
   collection: vi.fn().mockReturnValue({
+    bulkWrite: vi.fn().mockResolvedValue({ ok: 1 }),
+    deleteMany: vi.fn().mockResolvedValue({ deletedCount: 0 }),
     find: vi.fn().mockReturnValue({
       toArray: vi.fn().mockResolvedValue([
         { _id: '1', title: 'Test Page' },
         { _id: '2', title: 'Test Page 2' },
       ]),
     }),
-    deleteMany: vi.fn().mockResolvedValue({ deletedCount: 0 }),
-    bulkWrite: vi.fn().mockResolvedValue({ ok: 1 }),
     indexes: vi.fn().mockResolvedValue([]),
+  }),
+  listCollections: vi.fn().mockReturnValue({
+    toArray: vi.fn().mockResolvedValue([{ name: 'pages' }, { name: 'users' }]),
   }),
 }
 
 const mockLogger = {
+  debug: vi.fn(),
+  error: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
 }
 
 const mockPayload = {
@@ -62,12 +65,12 @@ describe('listBackups', () => {
   it('returns blobs from the backups/ prefix (token from env via settings + resolve)', async () => {
     const mockBlobs = [
       {
-        pathname: 'backups/manual---db---host---123.json',
-        url: 'https://blob.com/1.json',
         downloadUrl: 'https://blob.com/1.json?download=1',
+        etag: '"m1"',
+        pathname: 'backups/manual---db---host---123.json',
         size: 1000,
         uploadedAt: new Date(),
-        etag: '"m1"',
+        url: 'https://blob.com/1.json',
       },
     ]
     vi.mocked(list).mockResolvedValue({ blobs: mockBlobs, cursor: undefined, hasMore: false })
@@ -75,8 +78,8 @@ describe('listBackups', () => {
     const blobs = await listBackups(mockPayload)
 
     expect(list).toHaveBeenCalledWith({
-      prefix: 'backups/',
       limit: 1000,
+      prefix: 'backups/',
       token: 'env-test-token',
     })
     expect(blobs).toEqual(mockBlobs)
@@ -98,7 +101,7 @@ describe('listBackups', () => {
 
     expect(blobs).toEqual([])
     expect(list).not.toHaveBeenCalled()
-    if (prev !== undefined) process.env.BLOB_READ_WRITE_TOKEN = prev
+    if (prev !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prev}
   })
 })
 
@@ -135,19 +138,19 @@ describe('createBackup', () => {
 
   it('deletes old cron backups when limit is exceeded', async () => {
     const oldBlobs = Array.from({ length: 12 }, (_, i) => ({
-      url: `https://blob.com/cron-${i}.json`,
       downloadUrl: `https://blob.com/cron-${i}.json?download=1`,
+      etag: `"c${i}"`,
       pathname: `backups/cron-${i}.json`,
       size: 500,
       uploadedAt: new Date(Date.now() - i * 1000),
-      etag: `"c${i}"`,
+      url: `https://blob.com/cron-${i}.json`,
     }))
     vi.mocked(list)
       .mockResolvedValueOnce({ blobs: oldBlobs, cursor: undefined, hasMore: false })
       .mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false })
     vi.mocked(put).mockResolvedValue({ url: 'https://blob.com/new.json' } as any)
 
-    await createBackup(mockPayload, { cron: true, includeMedia: false, backupsToKeep: 10 })
+    await createBackup(mockPayload, { backupsToKeep: 10, cron: true, includeMedia: false })
 
     expect(del).toHaveBeenCalledTimes(3)
   })
@@ -213,19 +216,19 @@ describe('createMediaBackupFile', () => {
 
   it('creates a tar.gz archive containing collections and media files', async () => {
     const mockBlobFile = {
-      pathname: 'image.png',
-      url: 'https://blob.com/image.png',
       downloadUrl: 'https://blob.com/image.png?download=1',
+      etag: '"img"',
+      pathname: 'image.png',
       size: 1024,
       uploadedAt: new Date(),
-      etag: '"img"',
+      url: 'https://blob.com/image.png',
     }
     vi.mocked(list).mockResolvedValue({ blobs: [mockBlobFile], cursor: undefined, hasMore: false })
 
     global.fetch = vi.fn().mockResolvedValue({
+      arrayBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image-data').buffer),
       ok: true,
       status: 200,
-      arrayBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image-data').buffer),
     }) as any
 
     const mediaCollection = [{ filename: 'image.png' }]
@@ -240,7 +243,7 @@ describe('createMediaBackupFile', () => {
     vi.mocked(list).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false })
     const warn = vi.fn()
     const mockPayload = {
-      logger: { warn, debug: vi.fn(), error: vi.fn(), info: vi.fn() },
+      logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn },
     } as unknown as Payload
 
     const result = await createMediaBackupFile(

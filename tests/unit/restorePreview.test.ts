@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { buildCollectionPreviewGroups, buildRestorePreviewGroups } from '../../src/core/restorePreview.js'
 
 const mockPayload = {
@@ -30,7 +31,7 @@ const mockPayload = {
 
 describe('buildCollectionPreviewGroups', () => {
   it('groups counts like restore preview', () => {
-    const counts = { pages: 2, _pages_versions: 30, posts: 1 }
+    const counts = { _pages_versions: 30, pages: 2, posts: 1 }
     const groups = buildCollectionPreviewGroups(mockPayload, counts, { preferredLocales: ['de', 'en'] })
     const pages = groups.find((g) => g.groupId === 'pages')
     expect(pages?.main?.docCount).toBe(2)
@@ -38,16 +39,16 @@ describe('buildCollectionPreviewGroups', () => {
   })
 
   it('omits empty collections by default', () => {
-    const counts = { pages: 1, forms: 0, 'form-submissions': 0 }
+    const counts = { 'form-submissions': 0, forms: 0, pages: 1 }
     const groups = buildCollectionPreviewGroups(mockPayload, counts, { preferredLocales: ['en'] })
     expect(groups.map((g) => g.groupId).sort()).toEqual(['pages'])
   })
 
   it('includes empty collections when includeEmptyCollections is true', () => {
-    const counts = { pages: 1, forms: 0, 'form-submissions': 0 }
+    const counts = { 'form-submissions': 0, forms: 0, pages: 1 }
     const groups = buildCollectionPreviewGroups(mockPayload, counts, {
-      preferredLocales: ['en'],
       includeEmptyCollections: true,
+      preferredLocales: ['en'],
     })
     expect(groups.map((g) => g.groupId).sort()).toEqual(['form-submissions', 'forms', 'pages'])
     expect(groups.find((g) => g.groupId === 'forms')?.main?.docCount).toBe(0)
@@ -69,10 +70,10 @@ describe('buildCollectionPreviewGroups', () => {
       },
     } as any
 
-    const counts = { posts: 1, pages: 1, media: 1, orphan_coll: 1 }
+    const counts = { media: 1, orphan_coll: 1, pages: 1, posts: 1 }
     const groups = buildCollectionPreviewGroups(payload, counts, {
-      preferredLocales: ['en'],
       includeEmptyCollections: true,
+      preferredLocales: ['en'],
       sortLikeAdminNav: true,
     })
     expect(groups.map((g) => g.groupId)).toEqual(['pages', 'media', 'posts', 'orphan_coll'])
@@ -83,9 +84,9 @@ describe('buildRestorePreviewGroups', () => {
   it('merges main + version mongo names and hides backup-tasks', () => {
     const parsed = {
       byName: {
-        pages: [{ _id: '1' }, { _id: '2' }],
         _pages_versions: [{ _id: 'v1' }],
         'backup-tasks': [{ _id: 't' }],
+        pages: [{ _id: '1' }, { _id: '2' }],
         posts: [{ _id: 'p1' }],
       },
       fileKind: 'json' as const,
@@ -108,8 +109,8 @@ describe('buildRestorePreviewGroups', () => {
   it('flags auth session on users group', () => {
     const parsed = {
       byName: {
-        users: [{ _id: 'u1' }],
         media: [{ _id: 'm1' }],
+        users: [{ _id: 'u1' }],
       },
       fileKind: 'json' as const,
       mediaBlobCount: 0,
@@ -123,8 +124,8 @@ describe('buildRestorePreviewGroups', () => {
   it('flags auth session on roles group', () => {
     const parsed = {
       byName: {
-        roles: [{ _id: 'r1' }],
         media: [{ _id: 'm1' }],
+        roles: [{ _id: 'r1' }],
       },
       fileKind: 'json' as const,
       mediaBlobCount: 0,
