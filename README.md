@@ -1,4 +1,4 @@
-> Experimental. Originated in the [Payblocks](https://github.com/trieb-work/payblocks) template, now maintained as a standalone package. Feedback and PRs welcome.
+> Experimental. Originated in the [Payblocks](https://www.shadcnblocks.com/payload-cms) template, now maintained as a standalone package. Feedback and PRs welcome.
 
 # @trieb.work/payload-plugin-backup-mongodb
 
@@ -299,7 +299,7 @@ The repo includes a `dev/` Payload + Next app (MongoDB Memory Server when no URI
 
 ## Publishing (npm)
 
-Versioning uses [Changesets](https://github.com/changesets/changesets), like [Payblocks](https://github.com/trieb-work/payblocks): add a file with `pnpm changeset`, open a PR to `main`, and merge. The **Release** workflow opens a “version packages” PR or runs `pnpm run release` (`build` + `changeset publish`) when the set of changesets is ready. PRs need a new `.changeset/*.md` unless you add the **`no-changeset`** label (e.g. docs-only).
+Versioning uses [Changesets](https://github.com/changesets/changesets): add a file with `pnpm changeset`, open a PR to `main`, and merge. The **Release** workflow opens a “version packages” PR or runs `pnpm run release` (`build` + `changeset publish`) when the set of changesets is ready. PRs need a new `.changeset/*.md` unless you add the **`no-changeset`** label (e.g. docs-only).
 
 ---
 
@@ -317,3 +317,7 @@ Versioning uses [Changesets](https://github.com/changesets/changesets), like [Pa
 ## License
 
 MIT
+
+---
+
+Built and maintained by [TRWK](https://trwk.de), formerly [trieb.work](https://trieb.work).
