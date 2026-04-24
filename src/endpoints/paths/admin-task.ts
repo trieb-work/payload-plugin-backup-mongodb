@@ -1,13 +1,12 @@
 import type { Endpoint } from 'payload'
 
-import { getBackupTask, pollSecretsMatch, stripPollSecretForClient } from '../../core/taskProgress.js'
-import type { BackupPluginOptions } from '../../types.js'
-import { getAuthorizedBackupAdmin, jsonError } from '../shared.js'
+import type { BackupPluginOptions } from '../../types'
+
+import { getBackupTask, pollSecretsMatch, stripPollSecretForClient } from '../../core/taskProgress'
+import { getAuthorizedBackupAdmin, jsonError } from '../shared'
 
 export function createAdminTaskEndpoint(options: BackupPluginOptions): Endpoint {
   return {
-    method: 'get',
-    path: '/backup-mongodb/admin/task/:id',
     handler: async (req) => {
       const { payload } = req
       const id = req.routeParams?.id
@@ -27,8 +26,7 @@ export function createAdminTaskEndpoint(options: BackupPluginOptions): Endpoint 
       const provided = bearer ?? querySecret ?? ''
 
       const storedSecret = typeof task.pollSecret === 'string' ? task.pollSecret : null
-      const pollOk =
-        storedSecret && provided.length > 0 && pollSecretsMatch(provided, storedSecret)
+      const pollOk = storedSecret && provided.length > 0 && pollSecretsMatch(provided, storedSecret)
 
       if (!pollOk) {
         const user = await getAuthorizedBackupAdmin(req, options)
@@ -39,5 +37,7 @@ export function createAdminTaskEndpoint(options: BackupPluginOptions): Endpoint 
 
       return Response.json(stripPollSecretForClient(task))
     },
+    method: 'get',
+    path: '/backup-mongodb/admin/task/:id',
   }
 }

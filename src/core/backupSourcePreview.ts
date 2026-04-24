@@ -1,8 +1,9 @@
 import type { Payload } from 'payload'
 
-import { buildCollectionPreviewGroups } from './restorePreview.js'
-import type { RestorePreviewGroup } from './restorePreview.js'
-import { getDb } from './db.js'
+import type { RestorePreviewGroup } from './restorePreview'
+
+import { getDb } from './db'
+import { buildCollectionPreviewGroups } from './restorePreview'
 
 export type BackupSourcePreviewResponse = {
   groups: RestorePreviewGroup[]
@@ -14,7 +15,7 @@ export async function getBackupSourcePreviewForManual(
   payload: Payload,
   options: { preferredLocales?: string[] } = {},
 ): Promise<BackupSourcePreviewResponse> {
-  const db = await getDb(payload)
+  const db = getDb(payload)
   const cols = await db.listCollections().toArray()
   const counts: Record<string, number> = {}
   for (const { name } of cols) {
@@ -22,8 +23,8 @@ export async function getBackupSourcePreviewForManual(
   }
 
   const groups = buildCollectionPreviewGroups(payload, counts, {
-    preferredLocales: options.preferredLocales,
     includeEmptyCollections: true,
+    preferredLocales: options.preferredLocales,
     sortLikeAdminNav: true,
   })
 

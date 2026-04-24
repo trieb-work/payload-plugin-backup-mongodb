@@ -33,35 +33,48 @@
   ],
   "scripts": {
     "build": "pnpm copyfiles && pnpm build:css && pnpm build:embed-css && pnpm build:types && pnpm build:swc",
-    "prepare": "pnpm build",
+    "build:css": "sass src/components/BackupDashboard/index.scss dist/backup-dashboard.css --no-source-map --pkg-importer=node --quiet-deps --silence-deprecation=import",
+    "build:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next build dev --webpack",
+    "build:embed-css": "node ./scripts/embed-backup-css.mjs",
     "build:swc": "swc ./src -d ./dist --config-file .swcrc --strip-leading-paths",
     "build:types": "tsc -p tsconfig.build.json",
-    "build:css": "sass src/components/BackupDashboard/index.scss dist/backup-dashboard.css --no-source-map --pkg-importer=node --quiet-deps --silence-deprecation=import",
-    "build:embed-css": "node ./scripts/embed-backup-css.mjs",
-    "predev": "pnpm build:css && pnpm build:embed-css",
-    "dev:watch-css": "node ./scripts/watch-backup-css.mjs",
+    "changeset": "changeset",
     "clean": "rimraf {dist,*.tsbuildinfo}",
     "copyfiles": "copyfiles -u 1 \"src/**/*.{html,css,ttf,woff,woff2,eot,svg,jpg,png,json}\" dist/",
+    "predev": "pnpm build:css && pnpm build:embed-css",
     "dev": "node ./scripts/dev.mjs",
-    "dev:next": "next dev dev --webpack",
-    "dev:turbo": "node ./scripts/dev.mjs --turbo",
     "dev:generate-importmap": "pnpm dev:payload generate:importmap",
     "dev:generate-types": "pnpm dev:payload generate:types",
-    "build:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next build dev",
-    "start:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next start dev -p 3000",
+    "dev:next": "next dev dev --webpack",
     "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
+    "dev:turbo": "node ./scripts/dev.mjs --turbo",
+    "dev:watch-css": "node ./scripts/watch-backup-css.mjs",
     "generate:importmap": "pnpm dev:generate-importmap",
     "generate:types": "pnpm dev:generate-types",
-    "lint": "eslint",
-    "lint:fix": "eslint ./src --fix",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"dev/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" \"dev/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" --fix",
+    "playwright:install": "playwright install chromium",
+    "prepare": "pnpm build && husky",
+    "release": "pnpm run build && changeset publish",
+    "start:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next start dev -p 3000",
     "test": "pnpm test:int && pnpm test:e2e",
+    "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation playwright test",
     "test:int": "vitest run",
     "test:int:cov": "vitest run --coverage",
     "test:int:watch": "vitest",
-    "changeset": "changeset",
-    "release": "pnpm run build && changeset publish",
-    "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation playwright test",
     "typecheck": "tsc --noEmit"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{js,mjs,cjs,jsx,json,md,css,scss,yml,yaml}": [
+      "prettier --write --ignore-unknown"
+    ],
+    "package.json": [
+      "sort-package-json"
+    ]
   },
   "dependencies": {
     "@vercel/blob": "^2.3.3",
@@ -69,14 +82,8 @@
     "cronstrue": "^3.14.0",
     "tar-stream": "^3.1.7"
   },
-  "peerDependencies": {
-    "@payloadcms/db-mongodb": "^3.0.0",
-    "@payloadcms/ui": "^3.0.0",
-    "next": "^15.0.0",
-    "payload": "^3.0.0",
-    "react": "^19.0.0"
-  },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@eslint/eslintrc": "^3.2.0",
     "@payloadcms/db-mongodb": "3.82.1",
     "@payloadcms/eslint-config": "3.28.0",
@@ -86,7 +93,6 @@
     "@payloadcms/ui": "3.82.1",
     "@playwright/test": "1.58.2",
     "@swc-node/register": "1.10.9",
-    "@changesets/cli": "^2.29.8",
     "@swc/cli": "0.6.0",
     "@types/node": "22.19.9",
     "@types/react": "19.2.14",
@@ -99,6 +105,8 @@
     "eslint": "^9.23.0",
     "eslint-config-next": "16.2.3",
     "graphql": "^16.8.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "mongodb-memory-server": "10.1.4",
     "next": "16.2.3",
     "open": "^10.1.0",
@@ -115,6 +123,14 @@
     "vite-tsconfig-paths": "6.0.5",
     "vitest": "4.1.5"
   },
+  "peerDependencies": {
+    "@payloadcms/db-mongodb": "^3.0.0",
+    "@payloadcms/ui": "^3.0.0",
+    "next": "^15.0.0",
+    "payload": "^3.0.0",
+    "react": "^19.0.0"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531",
   "engines": {
     "node": "^18.20.2 || >=20.9.0",
     "pnpm": "^9 || ^10"
@@ -151,6 +167,5 @@
       "unrs-resolver"
     ]
   },
-  "registry": "https://registry.npmjs.org/",
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+  "registry": "https://registry.npmjs.org/"
 }

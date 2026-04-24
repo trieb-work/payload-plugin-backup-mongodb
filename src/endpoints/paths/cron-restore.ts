@@ -1,21 +1,21 @@
 import type { Endpoint } from 'payload'
 
-import { restoreBackup } from '../../core/restore.js'
 import {
   getResolvedCronBackupSettings,
   resolveBackupArchiveRead,
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
-} from '../../core/backupSettings.js'
-import { readRequestJson, requireCronBearer } from '../shared.js'
+} from '../../core/backupSettings'
+import { restoreBackup } from '../../core/restore'
+import { readRequestJson, requireCronBearer } from '../shared'
 
 export function createCronRestoreEndpoint(): Endpoint {
   return {
-    method: 'post',
-    path: '/backup-mongodb/cron/restore',
     handler: async (req) => {
       const cronErr = requireCronBearer(req)
-      if (cronErr) return cronErr
+      if (cronErr) {
+        return cronErr
+      }
       const { payload } = req
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
@@ -24,7 +24,7 @@ export function createCronRestoreEndpoint(): Endpoint {
         return new Response('Service unavailable', { status: 503 })
       }
 
-      const { url, pathname } = (await readRequestJson(req)) as { url?: string; pathname?: string }
+      const { pathname, url } = (await readRequestJson(req)) as { pathname?: string; url?: string }
       if (!url || typeof url !== 'string') {
         return new Response('Missing url', { status: 400 })
       }
@@ -43,12 +43,14 @@ export function createCronRestoreEndpoint(): Endpoint {
 
       payload.logger.info({ url }, '[backup-endpoint] Restore request accepted')
       await restoreBackup(payload, url, [], false, undefined, {
-        blobToken,
-        blobAccess,
         backupRead: backupRead ?? undefined,
+        blobAccess,
+        blobToken,
       })
       payload.logger.info({ url }, '[backup-endpoint] Restore request finished')
       return Response.json({ message: 'Backup restore finished' }, { status: 202 })
     },
+    method: 'post',
+    path: '/backup-mongodb/cron/restore',
   }
 }

@@ -4,24 +4,24 @@ import { Button } from '@payloadcms/ui'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
-import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview.js'
-import { backupPluginPublicApiPaths } from '../../publicApiPaths.js'
-import { skipMongoNamesFromPreview } from '../../utils/backupSelection.js'
-import { BACKUP_LABEL_MAX_LENGTH, sanitizeBackupLabel } from '../../utils/blobName.js'
-import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
+import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview'
 
-import { CollectionBackupPreviewBody } from './CollectionBackupPreviewBody.client.js'
-import { TaskActionButton } from './TaskActionButton.client.js'
+import { backupPluginPublicApiPaths } from '../../publicApiPaths'
+import { skipMongoNamesFromPreview } from '../../utils/backupSelection'
+import { BACKUP_LABEL_MAX_LENGTH, sanitizeBackupLabel } from '../../utils/blobName'
+import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop'
+import { CollectionBackupPreviewBody } from './CollectionBackupPreviewBody.client'
+import { TaskActionButton } from './TaskActionButton.client'
 
 export const ManualBackupDialog: React.FC = () => {
   const router = useRouter()
   const uid = useId()
   const labelInputId = `${uid}-manual-backup-label`
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const postSuccessCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const postSuccessCloseTimerRef = useRef<null | ReturnType<typeof setTimeout>>(null)
   const [preview, setPreview] = useState<BackupSourcePreviewResponse | null>(null)
-  const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [phase, setPhase] = useState<'error' | 'idle' | 'loading' | 'ready'>('idle')
+  const [errorMessage, setErrorMessage] = useState<null | string>(null)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [includeMediaBlobs, setIncludeMediaBlobs] = useState(true)
   const [backupAllCollections, setBackupAllCollections] = useState(false)
@@ -39,7 +39,9 @@ export const ManualBackupDialog: React.FC = () => {
 
   useEffect(() => {
     const el = dialogRef.current
-    if (!el) return
+    if (!el) {
+      return
+    }
     const onClose = () => {
       if (postSuccessCloseTimerRef.current) {
         clearTimeout(postSuccessCloseTimerRef.current)
@@ -60,7 +62,9 @@ export const ManualBackupDialog: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (!preview) return
+    if (!preview) {
+      return
+    }
     setSelected(Object.fromEntries(preview.groups.map((g) => [g.groupId, true])))
     setIncludeMediaBlobs(true)
     setBackupAllCollections(false)
@@ -74,11 +78,11 @@ export const ManualBackupDialog: React.FC = () => {
       const locale =
         typeof document !== 'undefined' ? (document.documentElement.lang || 'en').slice(0, 2) : 'en'
       const response = await fetch(backupPluginPublicApiPaths.adminBackupPreview, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ locale }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       })
-      const data = (await response.json()) as BackupSourcePreviewResponse & { error?: string }
+      const data = (await response.json()) as { error?: string } & BackupSourcePreviewResponse
       if (!response.ok) {
         throw new Error(data.error || 'Could not load collections')
       }
@@ -103,8 +107,12 @@ export const ManualBackupDialog: React.FC = () => {
   }
 
   const skipCollections = useMemo(() => {
-    if (!preview) return []
-    if (backupAllCollections) return []
+    if (!preview) {
+      return []
+    }
+    if (backupAllCollections) {
+      return []
+    }
     return skipMongoNamesFromPreview(preview, selected)
   }, [backupAllCollections, preview, selected])
 
@@ -114,7 +122,9 @@ export const ManualBackupDialog: React.FC = () => {
   )
 
   const includeMedia = useMemo(() => {
-    if (!hasMediaBlobOption) return false
+    if (!hasMediaBlobOption) {
+      return false
+    }
     return includeMediaBlobs
   }, [hasMediaBlobOption, includeMediaBlobs])
 
@@ -159,14 +169,16 @@ export const ManualBackupDialog: React.FC = () => {
 
   return (
     <>
-      <Button buttonStyle="primary" size="small" onClick={openDialog}>
+      <Button buttonStyle="primary" onClick={openDialog} size="small">
         Create manual Backup
       </Button>
 
+      {/* Native <dialog>: backdrop dismiss; element not in jsx-a11y interactive list */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <dialog
-        ref={dialogRef}
         className="backup-confirm-dialog backup-confirm-dialog--manual"
         onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dialogRef)}
+        ref={dialogRef}
       >
         <p className="backup-confirm-dialog__title">Create manual backup</p>
 
@@ -175,6 +187,7 @@ export const ManualBackupDialog: React.FC = () => {
             Label <span className="manual-backup-label__hint">(optional)</span>
           </label>
           <input
+            aria-label="Optional backup label"
             autoComplete="off"
             className="manual-backup-label__input"
             id={labelInputId}
@@ -191,17 +204,17 @@ export const ManualBackupDialog: React.FC = () => {
         </div>
 
         <CollectionBackupPreviewBody
-          phase={phase}
           errorMessage={errorMessage}
+          includeAllCollections={backupAllCollections}
+          includeAllLabel="Backup all collections"
+          includeMediaBlobs={includeMediaBlobs}
           onRetry={loadPreview}
+          onToggleGroup={onToggleGroup}
+          onToggleIncludeAllCollections={onToggleBackupAllCollections}
+          onToggleIncludeMedia={() => setIncludeMediaBlobs((v) => !v)}
+          phase={phase}
           preview={preview}
           selected={selected}
-          onToggleGroup={onToggleGroup}
-          includeMediaBlobs={includeMediaBlobs}
-          onToggleIncludeMedia={() => setIncludeMediaBlobs((v) => !v)}
-          includeAllCollections={backupAllCollections}
-          onToggleIncludeAllCollections={onToggleBackupAllCollections}
-          includeAllLabel="Backup all collections"
         />
 
         <div className="backup-confirm-dialog__actions">
@@ -216,14 +229,15 @@ export const ManualBackupDialog: React.FC = () => {
             onComplete={closeModalAfterBackupSuccess}
             pendingLabel="Creating backup…"
           />
-          <span
+          <button
+            aria-label="Manual backups will not get automatically deleted"
             className="backup-help-icon"
             data-tip="Manual backups will not get automatically deleted"
-            aria-label="Manual backups will not get automatically deleted"
+            type="button"
           >
             i
-          </span>
-          <Button buttonStyle="secondary" size="small" onClick={() => dialogRef.current?.close()}>
+          </button>
+          <Button buttonStyle="secondary" onClick={() => dialogRef.current?.close()} size="small">
             Cancel
           </Button>
         </div>

@@ -1,17 +1,13 @@
-import { EJSON } from 'bson'
 import type { Payload } from 'payload'
 
-import { readBackupBlobContentFlexible } from './backupBlobIO.js'
-import { resolveTarGzip } from './archive.js'
-import { COLLECTION_FILE_NAME } from './backup.js'
+import { EJSON } from 'bson'
+
+import { resolveTarGzip } from './archive'
+import { COLLECTION_FILE_NAME } from './backup'
+import { readBackupBlobContentFlexible } from './backupBlobIO'
 
 /** Mongo collection names that invalidate the current admin session when replaced. */
-const AUTH_SESSION_MONGO_NAMES = new Set([
-  'users',
-  'roles',
-  'payload-preferences',
-  'sessions',
-])
+const AUTH_SESSION_MONGO_NAMES = new Set(['payload-preferences', 'roles', 'sessions', 'users'])
 
 const MONGO_VERSIONS = /^_(.+)_versions$/i
 
@@ -20,17 +16,17 @@ export type RestorePreviewFileKind = 'json' | 'tar-gzip'
 export type RestorePreviewAdminHiddenReason = 'collection-config' | 'version-history'
 
 export type RestorePreviewGroup = {
-  /** Stable id for UI + skip payload (Payload collection slug when known, else mongo name). */
-  groupId: string
-  /** e.g. "Seiten (pages)" */
-  displayTitle: string
-  main?: { mongoName: string; docCount: number }
-  versions?: { mongoName: string; docCount: number }
-  /** All Mongo names restored when this group is checked. */
-  mongoNames: string[]
   adminHidden: boolean
   adminHiddenReasons: RestorePreviewAdminHiddenReason[]
   affectsAuthSession: boolean
+  /** e.g. "Seiten (pages)" */
+  displayTitle: string
+  /** Stable id for UI + skip payload (Payload collection slug when known, else mongo name). */
+  groupId: string
+  main?: { docCount: number; mongoName: string }
+  /** All Mongo names restored when this group is checked. */
+  mongoNames: string[]
+  versions?: { docCount: number; mongoName: string }
 }
 
 export type RestorePreviewResponse = {
@@ -51,7 +47,7 @@ function isVersionsMongoName(name: string): boolean {
 function resolveAdminHidden(
   payload: Payload,
   mongoName: string,
-): { adminHidden: boolean; adminHiddenReason: RestorePreviewAdminHiddenReason | null } {
+): { adminHidden: boolean; adminHiddenReason: null | RestorePreviewAdminHiddenReason } {
   const col = payload.config.collections.find((c) => {
     const dbName = (c as { dbName?: string }).dbName ?? c.slug
     return dbName === mongoName || c.slug === mongoName
@@ -66,16 +62,22 @@ function resolveAdminHidden(
 }
 
 function pickLocalizedLabel(labels: unknown, preferredLocales: string[]): string | undefined {
-  if (!labels || typeof labels !== 'object') return undefined
+  if (!labels || typeof labels !== 'object') {
+    return undefined
+  }
   const l = labels as { plural?: unknown; singular?: unknown }
 
   const pickField = (field: unknown): string | undefined => {
-    if (typeof field === 'string') return field
+    if (typeof field === 'string') {
+      return field
+    }
     if (field && typeof field === 'object') {
       const map = field as Record<string, string>
       for (const loc of preferredLocales) {
         const v = map[loc]
-        if (v) return v
+        if (v) {
+          return v
+        }
       }
       const first = Object.values(map).find(Boolean)
       return first
@@ -102,7 +104,7 @@ function getNavVisibleCollections(payload: Payload) {
  * Index in sidebar order, or `null` if the group is not a visible nav collection
  * (hidden config, unknown mongo name, etc.).
  */
-export function navVisibleCollectionOrderIndex(payload: Payload, groupId: string): number | null {
+export function navVisibleCollectionOrderIndex(payload: Payload, groupId: string): null | number {
   const visible = getNavVisibleCollections(payload)
   const idx = visible.findIndex((c) => {
     const dbName = (c as { dbName?: string }).dbName ?? c.slug
@@ -120,9 +122,15 @@ function sortPreviewGroupsLikeAdminNav(
   groups.sort((a, b) => {
     const ia = navVisibleCollectionOrderIndex(payload, a.groupId)
     const ib = navVisibleCollectionOrderIndex(payload, b.groupId)
-    if (ia !== null && ib !== null && ia !== ib) return ia - ib
-    if (ia !== null && ib === null) return -1
-    if (ia === null && ib !== null) return 1
+    if (ia !== null && ib !== null && ia !== ib) {
+      return ia - ib
+    }
+    if (ia !== null && ib === null) {
+      return -1
+    }
+    if (ia === null && ib !== null) {
+      return 1
+    }
     return a.displayTitle.localeCompare(b.displayTitle, locale)
   })
 }
@@ -133,8 +141,7 @@ function buildDisplayTitle(
   preferredLocales: string[],
 ): string {
   const col = payload.config.collections.find((c) => c.slug === groupSlug)
-  const label =
-    pickLocalizedLabel(col?.labels, preferredLocales) || humanizeSlug(groupSlug)
+  const label = pickLocalizedLabel(col?.labels, preferredLocales) || humanizeSlug(groupSlug)
   return `${label} (${groupSlug})`
 }
 
@@ -180,8 +187,8 @@ export async function loadRestoreBackupIndex(
 
 type GroupAgg = {
   groupId: string
-  main?: { mongoName: string; docCount: number }
-  versions?: { mongoName: string; docCount: number }
+  main?: { docCount: number; mongoName: string }
+  versions?: { docCount: number; mongoName: string }
 }
 
 function rebuildMongoNames(g: GroupAgg): string[] {
@@ -205,7 +212,9 @@ function mergeConfiguredCollectionZeros(
   const merged = { ...fileCounts }
   for (const col of payload.config.collections) {
     const mongo = (col as { dbName?: string }).dbName ?? col.slug
-    if (excludeMongo.has(mongo)) continue
+    if (excludeMongo.has(mongo)) {
+      continue
+    }
     if (!(mongo in merged)) {
       merged[mongo] = 0
     }
@@ -219,9 +228,9 @@ export function buildCollectionPreviewGroups(
   countsByMongo: Record<string, number>,
   options: {
     excludeMongo?: Set<string>
-    preferredLocales?: string[]
     /** When true, list collections with 0 documents (e.g. manual backup UI). Default false. */
     includeEmptyCollections?: boolean
+    preferredLocales?: string[]
     /** When true, order like Payload admin sidebar; unknown / hidden-only groups last by title. */
     sortLikeAdminNav?: boolean
   } = {},
@@ -236,8 +245,12 @@ export function buildCollectionPreviewGroups(
   const aggs = new Map<string, GroupAgg>()
 
   for (const [mongoName, count] of Object.entries(countsByMongo)) {
-    if (excludeMongo.has(mongoName)) continue
-    if (!includeEmptyCollections && count === 0) continue
+    if (excludeMongo.has(mongoName)) {
+      continue
+    }
+    if (!includeEmptyCollections && count === 0) {
+      continue
+    }
 
     const versionMatch = mongoName.match(MONGO_VERSIONS)
     if (versionMatch) {
@@ -300,16 +313,16 @@ export function buildRestorePreviewGroups(
     fileKind: RestorePreviewFileKind
     mediaBlobCount: number
   },
-  options: { preferredLocales?: string[]; excludeMongo?: Set<string> } = {},
+  options: { excludeMongo?: Set<string>; preferredLocales?: string[] } = {},
 ): RestorePreviewResponse {
   const excludeMongo = options.excludeMongo ?? new Set(['backup-tasks'])
   const rawCounts = countsFromByName(parsed.byName)
   const counts = mergeConfiguredCollectionZeros(payload, rawCounts, excludeMongo)
   const groups = buildCollectionPreviewGroups(payload, counts, {
-    preferredLocales: options.preferredLocales,
-    includeEmptyCollections: true,
-    sortLikeAdminNav: true,
     excludeMongo,
+    includeEmptyCollections: true,
+    preferredLocales: options.preferredLocales,
+    sortLikeAdminNav: true,
   })
 
   return {
@@ -323,8 +336,8 @@ export async function getRestorePreviewForAdminRestore(
   payload: Payload,
   downloadUrl: string,
   options: {
-    preferredLocales?: string[]
     backupRead?: { pathname: string; token: string }
+    preferredLocales?: string[]
   } = {},
 ): Promise<RestorePreviewResponse> {
   const parsed = await loadRestoreBackupIndex(downloadUrl, options.backupRead)

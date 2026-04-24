@@ -1,11 +1,11 @@
 import type { Config, Plugin } from 'payload'
 
-import type { BackupPluginOptions } from './types.js'
+import type { BackupPluginOptions } from './types'
 
-import { BackupSettingsCollection } from './collections/BackupSettings.js'
-import { BackupTasksCollection } from './collections/BackupTasks.js'
-import { BACKUP_SETTINGS_SLUG } from './core/backupSettings.js'
-import { createBackupMongodbEndpoints } from './endpoints/index.js'
+import { BackupSettingsCollection } from './collections/BackupSettings'
+import { BackupTasksCollection } from './collections/BackupTasks'
+import { BACKUP_SETTINGS_SLUG } from './core/backupSettings'
+import { createBackupMongodbEndpoints } from './endpoints/index'
 
 export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin => {
   return (incomingConfig: Config): Config => {
@@ -58,10 +58,25 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
         }
         try {
           if (payload.db.name === 'mongoose') {
-            const db = (payload.db as any).connection.db
-            await db
-              .collection('backup-tasks')
-              .createIndex({ updatedAt: 1 }, { background: true, expireAfterSeconds: 1800 })
+            const mongooseDb = payload.db as {
+              connection?: {
+                db?: {
+                  collection: (name: string) => {
+                    createIndex: (
+                      keys: Record<string, number>,
+                      options?: { background?: boolean; expireAfterSeconds?: number },
+                    ) => Promise<string>
+                  }
+                }
+              }
+            }
+            const db = mongooseDb.connection?.db
+            if (db) {
+              await db.collection('backup-tasks').createIndex(
+                { updatedAt: 1 },
+                { background: true, expireAfterSeconds: 1800 },
+              )
+            }
           }
         } catch {
           payload.logger.warn('[backup-plugin] Could not create TTL index on backup-tasks')

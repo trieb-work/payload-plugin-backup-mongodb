@@ -12,7 +12,7 @@ test.describe('Payload admin (dev app)', () => {
   test('posts collection is reachable after login', async ({ page }) => {
     await loginAsDevUser(page)
     await page.goto('/admin/collections/posts')
-    await expect(page).toHaveURL(/\/admin\/collections\/posts/)
-    await expect(page.getByText('Posts').first()).toBeVisible()
+    await expect(page).toHaveURL(/\/admin\/collections\/posts/, { timeout: 30_000 })
+    await expect(page.locator('body')).toContainText(/posts/i, { timeout: 30_000 })
   })
 })

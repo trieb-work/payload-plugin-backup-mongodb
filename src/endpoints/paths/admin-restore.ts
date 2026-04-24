@@ -1,30 +1,34 @@
-import { after } from 'next/server'
 import type { Endpoint } from 'payload'
+
+import { after } from 'next/server'
+
+import type { BackupPluginOptions } from '../../types'
 
 import {
   getResolvedCronBackupSettings,
   resolveBackupArchiveRead,
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
-} from '../../core/backupSettings.js'
-import { restoreBackup } from '../../core/restore.js'
-import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress.js'
-import type { BackupPluginOptions } from '../../types.js'
-import { jsonError, readRequestJson, requireBackupAdmin } from '../shared.js'
+} from '../../core/backupSettings'
+import { restoreBackup } from '../../core/restore'
+import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress'
+import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
 
 export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoint {
   return {
-    method: 'post',
-    path: '/backup-mongodb/admin/restore',
     handler: async (req) => {
       const auth = await requireBackupAdmin(req, options)
-      if (auth instanceof Response) return auth
+      if (auth instanceof Response) {
+        return auth
+      }
 
       const { payload } = req
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
       const blobAccess = resolveBackupBlobAccess(settings)
-      if (!blobToken) return jsonError('Service unavailable', 503)
+      if (!blobToken) {
+        return jsonError('Service unavailable', 503)
+      }
 
       const body = (await readRequestJson(req)) as Record<string, unknown>
       const pathname = body?.pathname
@@ -54,15 +58,15 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
 
       payload.logger.info({ taskId, url }, '[backup-endpoint] Restore queued')
 
-      const collectionBlacklist = [...new Set([...clientSkip, 'backup-tasks'])]
+      const collectionBlacklist = [...new Set(['backup-tasks', ...clientSkip])]
       const restoreArchiveMedia = body?.restoreArchiveMedia !== false
 
       after(
         restoreBackup(payload, url, collectionBlacklist, false, taskId, {
-          blobToken,
-          blobAccess,
-          restoreArchiveMedia,
           backupRead: backupRead ?? undefined,
+          blobAccess,
+          blobToken,
+          restoreArchiveMedia,
         })
           .then(() => completeBackupTask(payload, taskId, 'Restore completed'))
           .catch(async (error) => {
@@ -73,5 +77,7 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
 
       return Response.json({ pollSecret, taskId }, { status: 202 })
     },
+    method: 'post',
+    path: '/backup-mongodb/admin/restore',
   }
 }

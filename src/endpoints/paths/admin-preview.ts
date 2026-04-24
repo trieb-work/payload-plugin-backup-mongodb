@@ -1,14 +1,15 @@
 import type { Endpoint } from 'payload'
 
-import { getBackupSourcePreviewForManual } from '../../core/backupSourcePreview.js'
-import { getRestorePreviewForAdminRestore } from '../../core/restorePreview.js'
+import type { BackupPluginOptions } from '../../types'
+
 import {
   getResolvedCronBackupSettings,
   resolveBackupArchiveRead,
   resolveBackupBlobAccess,
-} from '../../core/backupSettings.js'
-import type { BackupPluginOptions } from '../../types.js'
-import { jsonError, readRequestJson, requireBackupAdmin } from '../shared.js'
+} from '../../core/backupSettings'
+import { getBackupSourcePreviewForManual } from '../../core/backupSourcePreview'
+import { getRestorePreviewForAdminRestore } from '../../core/restorePreview'
+import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
 
 /**
  * Admin backup source preview and restore archive preview (both POST).
@@ -16,11 +17,11 @@ import { jsonError, readRequestJson, requireBackupAdmin } from '../shared.js'
 export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpoint[] {
   return [
     {
-      method: 'post',
-      path: '/backup-mongodb/admin/backup-preview',
       handler: async (req) => {
         const auth = await requireBackupAdmin(req, options)
-        if (auth instanceof Response) return auth
+        if (auth instanceof Response) {
+          return auth
+        }
 
         const { payload } = req
         const body = (await readRequestJson(req)) as { locale?: string }
@@ -36,16 +37,22 @@ export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpo
           return Response.json({ error: message }, { status: 422 })
         }
       },
+      method: 'post',
+      path: '/backup-mongodb/admin/backup-preview',
     },
     {
-      method: 'post',
-      path: '/backup-mongodb/admin/restore-preview',
       handler: async (req) => {
         const auth = await requireBackupAdmin(req, options)
-        if (auth instanceof Response) return auth
+        if (auth instanceof Response) {
+          return auth
+        }
 
         const { payload } = req
-        const body = (await readRequestJson(req)) as { url?: string; locale?: string; pathname?: string }
+        const body = (await readRequestJson(req)) as {
+          locale?: string
+          pathname?: string
+          url?: string
+        }
         const url = body?.url
 
         if (!url || typeof url !== 'string') {
@@ -69,8 +76,8 @@ export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpo
 
         try {
           const preview = await getRestorePreviewForAdminRestore(payload, url, {
-            preferredLocales,
             backupRead: backupRead ?? undefined,
+            preferredLocales,
           })
           return Response.json(preview)
         } catch (error) {
@@ -79,6 +86,8 @@ export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpo
           return Response.json({ error: message }, { status: 422 })
         }
       },
+      method: 'post',
+      path: '/backup-mongodb/admin/restore-preview',
     },
   ]
 }

@@ -1,1 +1,1 @@
-export { createBackupMongodbEndpoints } from './index.js'
+export { createBackupMongodbEndpoints } from './index'

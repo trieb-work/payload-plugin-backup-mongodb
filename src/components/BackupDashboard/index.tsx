@@ -3,30 +3,37 @@ import type { I18n } from '@payloadcms/translations'
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-import type { BackupPluginOptions } from '../../types.js'
+import type { BackupPluginOptions } from '../../types'
 
-import { listBackups, resolveBackupListToken } from '../../core/backup.js'
+import { listBackups, resolveBackupListToken } from '../../core/backup'
 import {
   getBackupSortTimeMs,
   getCurrentDbName,
   getCurrentHostname,
   isUserAllowedByEnvRoles,
   transformBlobName,
-} from '../../utils/index.js'
-import { backupDashboardInlineCss } from './backupDashboardInlineCss.js'
-import { BackupListCollapsible, BackupSettingsModal, ManualBackupDialog } from './index.client.js'
+} from '../../utils/index'
+import { backupDashboardInlineCss } from './backupDashboardInlineCss'
+import { BackupListCollapsible, BackupSettingsModal, ManualBackupDialog } from './index.client'
 
 interface BackupDashboardProps {
   i18n: I18n
-  user: null | Record<string, unknown>
+  /** Optional on admin server props; omitted does not mean logged out (see `defaultIsHidden`). */
+  user?: null | Record<string, unknown>
 }
 
 function defaultIsHidden(
-  user: null | Record<string, unknown>,
+  user: null | Record<string, unknown> | undefined,
   access?: BackupPluginOptions['access'],
 ): boolean {
-  if (!user) {
+  if (user === null) {
     return true
+  }
+  if (user === undefined) {
+    if (access) {
+      return true
+    }
+    return false
   }
   if (access) {
     return !access(user)
@@ -46,11 +53,7 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, us
   if (!hasMongoConnection) {
     return (
       <>
-        <style
-          dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }}
-          data-payload-backup-mongodb="1"
-          id="payload-backup-mongodb-dashboard"
-        />
+        <style dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }} />
         <div className="backup-dashboard">
           <h2>
             Backups <span className="experimental">(experimental)</span>
@@ -70,9 +73,7 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, us
   const backupBlobToken = await resolveBackupListToken(payload)
   const hasBlobToken = backupBlobToken.trim().length > 0
 
-  const blobs = hasBlobToken
-    ? await listBackups(payload, { blobToken: backupBlobToken })
-    : []
+  const blobs = hasBlobToken ? await listBackups(payload, { blobToken: backupBlobToken }) : []
   const sortedBlobs = [...blobs].sort((a, b) => {
     const ta = getBackupSortTimeMs(transformBlobName(a.pathname), new Date(a.uploadedAt))
     const tb = getBackupSortTimeMs(transformBlobName(b.pathname), new Date(b.uploadedAt))
@@ -97,64 +98,62 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, us
       <style
         dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }}
         data-payload-backup-mongodb="1"
-        id="payload-backup-mongodb-dashboard"
       />
       <div className="backup-dashboard">
-      <h2>
-        Backups <span className="experimental">(experimental)</span>
-      </h2>
+        <h2>
+          Backups <span className="experimental">(experimental)</span>
+        </h2>
 
-      {!hasBlobToken && (
-        <p className="backup-dashboard__setup-hint" role="status">
-          Add a Vercel Blob read/write token: set environment variable{' '}
-          <code className="backup-dashboard__setup-hint-code">BLOB_READ_WRITE_TOKEN</code>, or open{' '}
-          <strong>Backup settings</strong> and paste a token. Until then, the list stays empty and
-          cron or manual backups cannot run.
-        </p>
-      )}
+        {!hasBlobToken && (
+          <p className="backup-dashboard__setup-hint" role="status">
+            Add a Vercel Blob read/write token: set environment variable{' '}
+            <code className="backup-dashboard__setup-hint-code">BLOB_READ_WRITE_TOKEN</code>, or
+            open <strong>Backup settings</strong> and paste a token. Until then, the list stays
+            empty and cron or manual backups cannot run.
+          </p>
+        )}
 
-      <div className="backup-dashboard__toolbar">
-        <div className="backup-dashboard__toolbar-meta">
-          <span className="backup-dashboard__toolbar-pill">
-            <span className="backup-dashboard__toolbar-key">Total</span>
-            {sortedBlobs.length} backup{sortedBlobs.length === 1 ? '' : 's'}
-          </span>
-          <span className="backup-dashboard__toolbar-pill">
-            <span className="backup-dashboard__toolbar-key">Last backup</span>
-            {lastBackup
-              ? new Date(
-                  getBackupSortTimeMs(
-                    transformBlobName(lastBackup.pathname),
-                    new Date(lastBackup.uploadedAt),
-                  ),
-                ).toLocaleString(i18n?.language || 'en')
-              : 'No backups yet'}
-          </span>
+        <div className="backup-dashboard__toolbar">
+          <div className="backup-dashboard__toolbar-meta">
+            <span className="backup-dashboard__toolbar-pill">
+              <span className="backup-dashboard__toolbar-key">Total</span>
+              {sortedBlobs.length} backup{sortedBlobs.length === 1 ? '' : 's'}
+            </span>
+            <span className="backup-dashboard__toolbar-pill">
+              <span className="backup-dashboard__toolbar-key">Last backup</span>
+              {lastBackup
+                ? new Date(
+                    getBackupSortTimeMs(
+                      transformBlobName(lastBackup.pathname),
+                      new Date(lastBackup.uploadedAt),
+                    ),
+                  ).toLocaleString(i18n?.language || 'en')
+                : 'No backups yet'}
+            </span>
+          </div>
+          <div className="make-backup-actions">
+            <BackupSettingsModal />
+            <ManualBackupDialog />
+          </div>
         </div>
-        <div className="make-backup-actions">
-          <BackupSettingsModal />
-          <ManualBackupDialog />
-        </div>
+
+        <BackupListCollapsible
+          blobs={sortedBlobs.map((b) => ({
+            downloadUrl: b.downloadUrl,
+            pathname: b.pathname,
+            size: b.size,
+            uploadedAt: new Date(b.uploadedAt).toISOString(),
+            url: b.url,
+          }))}
+          countOtherDb={countOtherDb}
+          countOtherHostname={countOtherHostname}
+          currentDbName={currentDbName}
+          currentHostname={currentHostname}
+          i18nLanguage={i18n?.language || 'en'}
+        />
       </div>
-
-      <BackupListCollapsible
-        blobs={sortedBlobs.map((b) => ({
-          downloadUrl: b.downloadUrl,
-          pathname: b.pathname,
-          size: b.size,
-          uploadedAt: new Date(b.uploadedAt).toISOString(),
-          url: b.url,
-        }))}
-        countOtherDb={countOtherDb}
-        countOtherHostname={countOtherHostname}
-        currentDbName={currentDbName}
-        currentHostname={currentHostname}
-        i18nLanguage={i18n?.language || 'en'}
-      />
-    </div>
     </>
   )
 }
 
 export default BackupDashboard
-

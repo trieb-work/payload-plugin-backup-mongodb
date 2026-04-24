@@ -1,21 +1,23 @@
+import type { Payload } from 'payload'
+
 import { del, list } from '@vercel/blob'
 import { EJSON } from 'bson'
-import type { Payload } from 'payload'
-import { createTarGzip } from './archive.js'
-import {
-  putBackupBlobContent,
-  readBackupBlobContentFlexible,
-  type BackupBlobAccessLevel,
-} from './backupBlobIO.js'
-import { getDb } from './db.js'
-import { updateBackupTask } from './taskProgress.js'
-import { getResolvedCronBackupSettings, resolveBackupBlobToken } from './backupSettings.js'
+
 import {
   createBlobName,
   getCurrentDbName,
   getCurrentHostname,
   sanitizeBackupLabel,
-} from '../utils/index.js'
+} from '../utils/index'
+import { createTarGzip } from './archive'
+import {
+  type BackupBlobAccessLevel,
+  putBackupBlobContent,
+  readBackupBlobContentFlexible,
+} from './backupBlobIO'
+import { getResolvedCronBackupSettings, resolveBackupBlobToken } from './backupSettings'
+import { getDb } from './db'
+import { updateBackupTask } from './taskProgress'
 
 export const COLLECTION_FILE_NAME = 'collections.json'
 
@@ -29,7 +31,9 @@ export async function resolveBackupListToken(
   explicitToken?: string,
 ): Promise<string> {
   const t = explicitToken?.trim()
-  if (t) return t
+  if (t) {
+    return t
+  }
   return resolveBackupBlobToken(await getResolvedCronBackupSettings(payload)).trim()
 }
 
@@ -48,15 +52,17 @@ export async function listBackups(
     return []
   }
   const { blobs } = await list({
-    prefix: 'backups/',
     limit: 1000,
+    prefix: 'backups/',
     token,
   })
   return blobs
 }
 
 function resolveBlobToken(blobToken?: string): string | undefined {
-  if (blobToken && blobToken.trim().length > 0) return blobToken
+  if (blobToken && blobToken.trim().length > 0) {
+    return blobToken
+  }
   return undefined
 }
 
@@ -69,6 +75,7 @@ export async function createMediaBackupFile(
   mediaCollection: { filename: string }[],
   backupBlobToken?: string,
   mediaListToken?: string,
+  payload?: Payload,
 ): Promise<Buffer> {
   const envMedia = (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
   const tokenForMedia =
@@ -80,7 +87,10 @@ export async function createMediaBackupFile(
       const matchingFiles = await list({ limit: 2, prefix: media.filename, token: tokenForMedia })
       const blob = matchingFiles.blobs.find((blob) => blob.pathname === media.filename)
       if (!blob) {
-        console.warn('Backup: File was in collection but not in blob storage', media.filename)
+        payload?.logger.warn(
+          { filename: media.filename },
+          '[backup] File was in collection but not in blob storage',
+        )
         return undefined
       }
       const content = await readBackupBlobContentFlexible(
@@ -93,37 +103,37 @@ export async function createMediaBackupFile(
   )
   return await createTarGzip([
     { name: COLLECTION_FILE_NAME, content: Buffer.from(collectionBackupFile) },
-    ...(mediaFiles.filter(Boolean) as { name: string; content: Buffer }[]),
+    ...(mediaFiles.filter(Boolean) as { content: Buffer; name: string }[]),
   ])
 }
 
 export async function createBackup(
   payload: Payload,
   options: {
-    cron?: boolean
-    includeMedia?: boolean
     backupsToKeep?: number
-    /** Mongo collection names to omit from the dump (e.g. manual backup UI). */
-    skipCollections?: string[]
-    /** Optional explicit Vercel Blob token (falls back to env inside @vercel/blob). */
-    blobToken?: string
     /** Public (default) or private Vercel Blob access for the uploaded backup archive. */
     blobAccess?: BackupBlobAccessLevel
+    /** Optional explicit Vercel Blob token (falls back to env inside @vercel/blob). */
+    blobToken?: string
+    cron?: boolean
+    includeMedia?: boolean
     /**
      * Optional human-readable label for manual backups (appears in the backup list and is
      * searchable via the label filter). Ignored for cron backups. Whitespace is collapsed,
      * length is capped and the stored value is URL-encoded in the blob pathname.
      */
     label?: string
+    /** Mongo collection names to omit from the dump (e.g. manual backup UI). */
+    skipCollections?: string[]
     taskId?: string
   } = {},
 ): Promise<void> {
   const {
+    backupsToKeep,
+    blobToken,
     cron = false,
     includeMedia = false,
-    backupsToKeep,
     skipCollections,
-    blobToken,
     taskId,
   } = options
   const label = cron ? '' : sanitizeBackupLabel(options.label)
@@ -139,7 +149,13 @@ export async function createBackup(
   const t0 = Date.now()
 
   payload.logger.info(
-    { blacklist: skipCollections?.length ?? 0, includeMedia, type, db: currentDbName, host: currentHostname },
+    {
+      type,
+      blacklist: skipCollections?.length ?? 0,
+      db: currentDbName,
+      host: currentHostname,
+      includeMedia,
+    },
     '[backup] Starting backup',
   )
   if (taskId) {
@@ -151,8 +167,8 @@ export async function createBackup(
 
   if (cron) {
     const { blobs } = await list({
-      prefix: 'backups/cron-',
       limit: 1000,
+      prefix: 'backups/cron-',
       token,
     })
     const sorted = blobs.sort(
@@ -173,7 +189,7 @@ export async function createBackup(
     }
   }
 
-  const db = await getDb(payload)
+  const db = getDb(payload)
   const collections = await db.listCollections().toArray()
   payload.logger.info({ collections: collections.length }, '[backup] Dumping collections')
   if (taskId) {
@@ -182,13 +198,19 @@ export async function createBackup(
     })
   }
 
-  const allData: Record<string, any[]> = {}
+  const allData: Record<string, Record<string, unknown>[]> = {}
   for (const collection of collections) {
     if (skip.has(collection.name)) {
-      payload.logger.debug({ collection: collection.name }, '[backup] Skipping blacklisted collection')
+      payload.logger.debug(
+        { collection: collection.name },
+        '[backup] Skipping blacklisted collection',
+      )
       continue
     }
-    allData[collection.name] = await db.collection(collection.name).find({}).toArray()
+    allData[collection.name] = (await db
+      .collection(collection.name)
+      .find({})
+      .toArray()) as Record<string, unknown>[]
     payload.logger.debug(
       { collection: collection.name, docs: allData[collection.name].length },
       '[backup] Collection dumped',
@@ -216,9 +238,10 @@ export async function createBackup(
   const backupFile = includeMedia
     ? await createMediaBackupFile(
         collectionBackupFile,
-        allData?.['media'] || [],
+        (allData?.['media'] as { filename: string }[] | undefined) || [],
         token,
         envMedia.length > 0 ? envMedia : undefined,
+        payload,
       )
     : collectionBackupFile
   const name = `backups/${createBlobName(
@@ -240,7 +263,7 @@ export async function createBackup(
   const effectiveAccess = await putBackupBlobContent(name, backupFile, token, blobAccess)
   if (effectiveAccess !== blobAccess) {
     payload.logger.warn(
-      { name, preferredAccess: blobAccess, effectiveAccess },
+      { name, effectiveAccess, preferredAccess: blobAccess },
       '[backup] Blob store rejected preferred access level; uploaded with fallback',
     )
   }

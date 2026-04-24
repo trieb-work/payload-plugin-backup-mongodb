@@ -30,9 +30,9 @@ function isPlausibleNewFormatTail(collectionCount: number, timestampMs: number):
  * Returns an empty string when nothing usable remains.
  */
 export function sanitizeBackupLabel(raw: unknown): string {
-  if (typeof raw !== 'string') return ''
+  if (typeof raw !== 'string') {return ''}
   const collapsed = raw.replace(/\s+/g, ' ').trim()
-  if (!collapsed) return ''
+  if (!collapsed) {return ''}
   // The blob-name separator is three hyphens; collapse any hyphen run in the
   // label to a single hyphen so round-trip parsing stays unambiguous.
   const deHyphen = collapsed.replace(/-{2,}/g, '-')
@@ -43,14 +43,14 @@ export interface TransformBlobNameResult {
   collectionCount?: number
   date: string
   dbName: string
-  fileType: 'json' | 'tar.gz' | 'na'
+  fileType: 'json' | 'na' | 'tar.gz'
   hostname: string
   label?: string
   type: string
 }
 
 export function transformBlobName(blobName: string): TransformBlobNameResult {
-  const fileType: 'json' | 'tar.gz' | 'na' = blobName.endsWith('json')
+  const fileType: 'json' | 'na' | 'tar.gz' = blobName.endsWith('json')
     ? 'json'
     : blobName.endsWith('tar.gz')
       ? 'tar.gz'
@@ -64,7 +64,7 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
   if (labelEncoded) {
     try {
       const decoded = decodeURIComponent(labelEncoded)
-      if (decoded) label = decoded
+      if (decoded) {label = decoded}
     } catch {
       label = labelEncoded
     }
@@ -76,24 +76,24 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
     const timestampMs = Number(m[2])
     if (isPlausibleNewFormatTail(collectionCount, timestampMs)) {
       return {
+        type,
         collectionCount,
         date: m[2],
         dbName: decodeURIComponent(dbName),
         fileType,
         hostname: decodeURIComponent(hostname),
         label,
-        type,
       }
     }
   }
 
   return {
+    type,
     date: last,
     dbName: decodeURIComponent(dbName),
     fileType,
     hostname: decodeURIComponent(hostname),
     label,
-    type,
   }
 }
 

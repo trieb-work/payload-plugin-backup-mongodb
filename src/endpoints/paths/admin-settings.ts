@@ -1,8 +1,11 @@
-import { list } from '@vercel/blob'
-import { after } from 'next/server'
 import type { Endpoint } from 'payload'
 
-import { transferBackupBlobsToToken } from '../../core/backupBlobTransfer.js'
+import { list } from '@vercel/blob'
+import { after } from 'next/server'
+
+import type { BackupPluginOptions } from '../../types'
+
+import { transferBackupBlobsToToken } from '../../core/backupBlobTransfer'
 import {
   BACKUP_SETTINGS_SLUG,
   getResolvedCronBackupSettings,
@@ -10,24 +13,25 @@ import {
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
   toPayloadSkipRows,
-} from '../../core/backupSettings.js'
-import { validateBackupBlobToken } from '../../core/blobTokenValidate.js'
+} from '../../core/backupSettings'
+import { validateBackupBlobToken } from '../../core/blobTokenValidate'
 import {
   completeBackupTask,
   createBackupTask,
   failBackupTask,
   updateBackupTask,
-} from '../../core/taskProgress.js'
-import { describeCronSchedule, readVercelBackupCronFromRepo } from '../../core/vercelBackupCron.js'
-import type { BackupPluginOptions } from '../../types.js'
+} from '../../core/taskProgress'
+import { describeCronSchedule, readVercelBackupCronFromRepo } from '../../core/vercelBackupCron'
 import {
   maskBlobReadWriteToken,
   shouldPreserveBackupBlobTokenField,
-} from '../../utils/maskBlobToken.js'
-import { readRequestJson, requireBackupAdmin } from '../shared.js'
+} from '../../utils/maskBlobToken'
+import { readRequestJson, requireBackupAdmin } from '../shared'
 
 function clampBackupsToKeep(n: unknown): number {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return 10
+  if (typeof n !== 'number' || !Number.isFinite(n)) {
+    return 10
+  }
   return Math.min(365, Math.max(1, Math.floor(n)))
 }
 
@@ -35,7 +39,7 @@ function buildSettingsJson(
   stored: Awaited<ReturnType<typeof getResolvedCronBackupSettings>>,
   options: BackupPluginOptions,
   vercelCron: ReturnType<typeof readVercelBackupCronFromRepo>,
-  humanDescription: string | null,
+  humanDescription: null | string,
   transfer:
     | {
         deferred: boolean
@@ -59,10 +63,10 @@ function buildSettingsJson(
   }
   return {
     id: stored.id,
-    backupsToKeep: stored.backupsToKeep,
     backupBlobAccess: stored.backupBlobAccess,
     backupBlobAccessEffective: resolveBackupBlobAccess(stored),
     backupBlobTokenMasked: maskBlobReadWriteToken(stored.backupBlobReadWriteToken),
+    backupsToKeep: stored.backupsToKeep,
     cron: vercelCron
       ? {
           configFileRelative: vercelCron.configFileRelative,
@@ -84,11 +88,11 @@ function buildSettingsJson(
 export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endpoint[] {
   return [
     {
-      method: 'get',
-      path: '/backup-mongodb/admin/settings',
       handler: async (req) => {
         const auth = await requireBackupAdmin(req, options)
-        if (auth instanceof Response) return auth
+        if (auth instanceof Response) {
+          return auth
+        }
 
         const { payload } = req
         const stored = await getResolvedCronBackupSettings(payload)
@@ -100,13 +104,15 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
           buildSettingsJson(stored, options, vercelCron, humanDescription, undefined),
         )
       },
+      method: 'get',
+      path: '/backup-mongodb/admin/settings',
     },
     {
-      method: 'patch',
-      path: '/backup-mongodb/admin/settings',
       handler: async (req) => {
         const auth = await requireBackupAdmin(req, options)
-        if (auth instanceof Response) return auth
+        if (auth instanceof Response) {
+          return auth
+        }
 
         const { payload } = req
         const body = (await readRequestJson(req)) as Record<string, unknown>
@@ -135,7 +141,7 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
 
         // Access detection: re-probe when the token actually changes; preserve existing otherwise;
         // clear when the override is removed (falls back to heuristic on the default env token).
-        let backupBlobAccessForDb: 'public' | 'private' | null = stored.backupBlobAccess
+        let backupBlobAccessForDb: 'private' | 'public' | null = stored.backupBlobAccess
         if (!preserveTokenField) {
           if (tokenForDb.length === 0) {
             backupBlobAccessForDb = null
@@ -155,9 +161,9 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
           await payload.create({
             collection: BACKUP_SETTINGS_SLUG,
             data: {
-              backupsToKeep,
               backupBlobAccess: backupBlobAccessForDb,
               backupBlobReadWriteToken: tokenForDb,
+              backupsToKeep,
               includeMediaForCron,
               skipMongoCollections: toPayloadSkipRows(skipMongoCollections),
             },
@@ -165,15 +171,15 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
           })
         } else {
           await payload.update({
+            id: stored.id,
             collection: BACKUP_SETTINGS_SLUG,
             data: {
-              backupsToKeep,
               backupBlobAccess: backupBlobAccessForDb,
               backupBlobReadWriteToken: tokenForDb,
+              backupsToKeep,
               includeMediaForCron,
               skipMongoCollections: toPayloadSkipRows(skipMongoCollections),
             },
-            id: stored.id,
             overrideAccess: true,
           })
         }
@@ -274,8 +280,8 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
                 taskId,
                 JSON.stringify({
                   failed: summary.failed,
-                  phase: 'done',
                   pathname: '',
+                  phase: 'done',
                   total: summary.total,
                   transferred: summary.transferred,
                 }),
@@ -303,6 +309,8 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
           }),
         )
       },
+      method: 'patch',
+      path: '/backup-mongodb/admin/settings',
     },
   ]
 }

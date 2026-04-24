@@ -1,1 +1,1 @@
-export { BackupDashboard } from '../components/BackupDashboard/index.js'
+export { BackupDashboard } from '../components/BackupDashboard/index'

@@ -1,7 +1,7 @@
 import { put } from '@vercel/blob'
 
 /** Vercel Blob access for backup archives under `backups/`. */
-export type BackupBlobAccessLevel = 'public' | 'private'
+export type BackupBlobAccessLevel = 'private' | 'public'
 
 /**
  * Returns the blob pathname (no leading slash) for a trusted Vercel Blob HTTPS URL, or null.
@@ -9,13 +9,13 @@ export type BackupBlobAccessLevel = 'public' | 'private'
  * stored by Vercel Blob (e.g. blobs whose own pathname contains `%2F` are served from a URL that
  * double-encodes it to `%252F`).
  */
-export function vercelBlobPathnameFromUrl(urlStr: string): string | null {
+export function vercelBlobPathnameFromUrl(urlStr: string): null | string {
   try {
     const u = new URL(urlStr)
-    if (u.protocol !== 'https:') return null
-    if (!u.hostname.endsWith('.blob.vercel-storage.com')) return null
+    if (u.protocol !== 'https:') {return null}
+    if (!u.hostname.endsWith('.blob.vercel-storage.com')) {return null}
     const raw = u.pathname.replace(/^\//, '')
-    if (raw.length === 0) return null
+    if (raw.length === 0) {return null}
     try {
       return decodeURIComponent(raw)
     } catch {
@@ -55,8 +55,8 @@ async function fetchBackupBlobUrl(url: string, token: string): Promise<Response>
 }
 
 export type BackupBlobDownloadStream = {
-  stream: ReadableStream<Uint8Array>
   contentType: string
+  stream: ReadableStream<Uint8Array>
 }
 
 /**
@@ -66,11 +66,11 @@ export type BackupBlobDownloadStream = {
  * pathname-to-URL construction would misinterpret).
  */
 export async function streamBackupBlobForDownload(options: {
+  blobUrl?: null | string
+  downloadUrl?: null | string
   pathname: string
-  token: string
   preferredAccess: BackupBlobAccessLevel
-  blobUrl?: string | null
-  downloadUrl?: string | null
+  token: string
 }): Promise<BackupBlobDownloadStream | null> {
   const { blobUrl, downloadUrl, pathname, token } = options
   const candidates: string[] = []
@@ -86,8 +86,8 @@ export async function streamBackupBlobForDownload(options: {
       const res = await fetchBackupBlobUrl(target, token)
       if (res.ok && res.body) {
         return {
-          stream: res.body,
           contentType: res.headers.get('content-type') || 'application/octet-stream',
+          stream: res.body,
         }
       }
     } catch {
@@ -105,8 +105,8 @@ export async function bufferFromWebReadableStream(
   const chunks: Buffer[] = []
   while (true) {
     const { done, value } = await reader.read()
-    if (done) break
-    if (value) chunks.push(Buffer.from(value))
+    if (done) {break}
+    if (value) {chunks.push(Buffer.from(value))}
   }
   return Buffer.concat(chunks)
 }
@@ -117,13 +117,13 @@ export async function bufferFromWebReadableStream(
  * required for private blobs.
  */
 export async function readBackupBlobContent(options: {
-  pathname: string
-  downloadUrl: string
-  token: string
   /** Kept for API compatibility — the fetch path is the same for public and private stores. */
   access: BackupBlobAccessLevel
+  downloadUrl: string
+  pathname: string
+  token: string
 }): Promise<Buffer> {
-  const { pathname, downloadUrl, token } = options
+  const { downloadUrl, pathname, token } = options
   const res = await fetchBackupBlobUrl(downloadUrl, token)
   if (res.ok) {
     return Buffer.from(await res.arrayBuffer())
@@ -145,7 +145,7 @@ export async function readBackupBlobContentFlexible(
 ): Promise<Buffer> {
   try {
     const res = await fetchBackupBlobUrl(downloadUrl, token)
-    if (res.ok) return Buffer.from(await res.arrayBuffer())
+    if (res.ok) {return Buffer.from(await res.arrayBuffer())}
   } catch {
     /* try anonymous fallback */
   }
@@ -153,7 +153,7 @@ export async function readBackupBlobContentFlexible(
   if (!isVercelBlobHost(downloadUrl)) {
     try {
       const res = await fetch(downloadUrl)
-      if (res.ok) return Buffer.from(await res.arrayBuffer())
+      if (res.ok) {return Buffer.from(await res.arrayBuffer())}
     } catch {
       /* fall through to error */
     }
@@ -170,7 +170,7 @@ export async function readBackupBlobContentFlexible(
  */
 export async function putBackupBlobContent(
   pathname: string,
-  body: Buffer | Uint8Array | string,
+  body: Buffer | string | Uint8Array,
   token: string | undefined,
   access: BackupBlobAccessLevel,
 ): Promise<BackupBlobAccessLevel> {
@@ -187,8 +187,8 @@ export async function putBackupBlobContent(
       })
       return attempt
     } catch (error) {
-      if (firstError === undefined) firstError = error
-      if (!looksLikeAccessModeMismatch(error)) throw error
+      if (firstError === undefined) {firstError = error}
+      if (!looksLikeAccessModeMismatch(error)) {throw error}
     }
   }
   throw firstError instanceof Error ? firstError : new Error('Failed to upload backup blob')
@@ -196,7 +196,20 @@ export async function putBackupBlobContent(
 
 /** Heuristic for Vercel Blob errors that indicate the store rejects the chosen access level. */
 function looksLikeAccessModeMismatch(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error ?? '')
+  const msg =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : error == null
+          ? ''
+          : (() => {
+              try {
+                return JSON.stringify(error)
+              } catch {
+                return 'unknown'
+              }
+            })()
   const lower = msg.toLowerCase()
   return (
     lower.includes('access') &&

@@ -2,14 +2,14 @@ import type { CollectionConfig } from 'payload'
 
 export const BackupTasksCollection: CollectionConfig = {
   slug: 'backup-tasks',
-  admin: {
-    hidden: true,
-  },
   access: {
     create: () => false,
+    delete: () => false,
     read: () => false,
     update: () => false,
-    delete: () => false,
+  },
+  admin: {
+    hidden: true,
   },
   fields: [
     {

@@ -9,7 +9,7 @@
  * Expect `202` when `BLOB_READ_WRITE_TOKEN` and `CRON_SECRET` are set and Payload is up.
  */
 import { after } from 'next/server'
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createBackupMongodbEndpoints } from '../../src/endpoints/index.js'
 import { createCronRunEndpoint } from '../../src/endpoints/paths/cron-run.js'
@@ -28,19 +28,19 @@ vi.mock('../../src/core/backup', () => ({
 vi.mock('../../src/core/backupSettings', () => ({
   getResolvedCronBackupSettings: vi.fn(() =>
     Promise.resolve({
+      id: 'test',
       backupBlobAccess: null,
       backupBlobReadWriteToken: '',
-      id: 'test',
       backupsToKeep: 10,
-      skipMongoCollections: [] as string[],
       includeMediaForCron: false,
+      skipMongoCollections: [] as string[],
     }),
   ),
+  resolveBackupBlobAccess: vi.fn(() => 'public' as const),
   resolveBackupBlobToken: vi.fn(
     (settings: { backupBlobReadWriteToken?: string }) =>
       settings.backupBlobReadWriteToken || process.env.BLOB_READ_WRITE_TOKEN || '',
   ),
-  resolveBackupBlobAccess: vi.fn(() => 'public' as const),
 }))
 
 describe('cron backup endpoints', () => {
@@ -65,14 +65,14 @@ describe('cron backup endpoints', () => {
       const ep = createCronRunEndpoint({})
       const res = await ep.handler({
         headers: new Headers({ authorization: 'Bearer x' }),
-        payload: { logger: { info: vi.fn(), error: vi.fn() } },
+        payload: { logger: { error: vi.fn(), info: vi.fn() } },
       } as never)
       expect(res.status).toBe(503)
     } finally {
-      if (prevBlob !== undefined) process.env.BLOB_READ_WRITE_TOKEN = prevBlob
-      else delete process.env.BLOB_READ_WRITE_TOKEN
-      if (prevCron !== undefined) process.env.CRON_SECRET = prevCron
-      else delete process.env.CRON_SECRET
+      if (prevBlob !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prevBlob}
+      else {delete process.env.BLOB_READ_WRITE_TOKEN}
+      if (prevCron !== undefined) {process.env.CRON_SECRET = prevCron}
+      else {delete process.env.CRON_SECRET}
     }
   })
 
@@ -85,14 +85,14 @@ describe('cron backup endpoints', () => {
       const ep = createCronRunEndpoint({})
       const res = await ep.handler({
         headers: new Headers({ authorization: 'Bearer wrong' }),
-        payload: { logger: { info: vi.fn(), error: vi.fn() } },
+        payload: { logger: { error: vi.fn(), info: vi.fn() } },
       } as never)
       expect(res.status).toBe(401)
     } finally {
-      if (prevBlob !== undefined) process.env.BLOB_READ_WRITE_TOKEN = prevBlob
-      else delete process.env.BLOB_READ_WRITE_TOKEN
-      if (prevCron !== undefined) process.env.CRON_SECRET = prevCron
-      else delete process.env.CRON_SECRET
+      if (prevBlob !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prevBlob}
+      else {delete process.env.BLOB_READ_WRITE_TOKEN}
+      if (prevCron !== undefined) {process.env.CRON_SECRET = prevCron}
+      else {delete process.env.CRON_SECRET}
     }
   })
 
@@ -107,7 +107,7 @@ describe('cron backup endpoints', () => {
       const res = await ep.handler({
         headers: new Headers({ authorization: 'Bearer expected-secret' }),
         payload: {
-          logger: { info: vi.fn(), error: vi.fn() },
+          logger: { error: vi.fn(), info: vi.fn() },
         },
       } as never)
       expect(res.status).toBe(202)
@@ -115,17 +115,17 @@ describe('cron backup endpoints', () => {
       expect(createBackup).toHaveBeenCalled()
       const call = vi.mocked(createBackup).mock.calls[0]
       expect(call[1]).toMatchObject({
-        cron: true,
         backupsToKeep: 7,
-        skipCollections: [],
-        includeMedia: false,
         blobAccess: 'public',
+        cron: true,
+        includeMedia: false,
+        skipCollections: [],
       })
     } finally {
-      if (prevBlob !== undefined) process.env.BLOB_READ_WRITE_TOKEN = prevBlob
-      else delete process.env.BLOB_READ_WRITE_TOKEN
-      if (prevCron !== undefined) process.env.CRON_SECRET = prevCron
-      else delete process.env.CRON_SECRET
+      if (prevBlob !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prevBlob}
+      else {delete process.env.BLOB_READ_WRITE_TOKEN}
+      if (prevCron !== undefined) {process.env.CRON_SECRET = prevCron}
+      else {delete process.env.CRON_SECRET}
     }
   })
 })

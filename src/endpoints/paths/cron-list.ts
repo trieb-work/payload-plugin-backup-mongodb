@@ -1,15 +1,15 @@
 import type { Endpoint } from 'payload'
 
-import { listBackups, resolveBackupListToken } from '../../core/backup.js'
-import { requireCronBearer } from '../shared.js'
+import { listBackups, resolveBackupListToken } from '../../core/backup'
+import { requireCronBearer } from '../shared'
 
 export function createCronListEndpoint(): Endpoint {
   return {
-    method: 'get',
-    path: '/backup-mongodb/cron/list',
     handler: async (req) => {
       const cronErr = requireCronBearer(req)
-      if (cronErr) return cronErr
+      if (cronErr) {
+        return cronErr
+      }
 
       const { payload } = req
       const backupBlobToken = await resolveBackupListToken(payload)
@@ -21,5 +21,7 @@ export function createCronListEndpoint(): Endpoint {
       payload.logger.info({ count: blobs.length }, '[backup-endpoint] Backup list loaded')
       return Response.json(blobs, { status: 200 })
     },
+    method: 'get',
+    path: '/backup-mongodb/cron/list',
   }
 }
