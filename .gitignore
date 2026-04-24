@@ -44,7 +44,6 @@ dev/**/*.d.cts
 !dev/next-env.d.ts
 tests/**/*.d.ts
 src/**/*.d.ts
-!src/payload-config.d.ts
 
 .env
 

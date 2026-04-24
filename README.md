@@ -309,8 +309,8 @@ Versioning uses [Changesets](https://github.com/changesets/changesets), like [Pa
 - Additional storage adapters (S3, R2, filesystem, etc.).
 - Scheduler-agnostic display when not using Vercel (`vercel.json` is currently used for the schedule summary where available).
 - Streaming restore for very large databases.
-- More E2E coverage around a demo project.
 - Configurable `backups/` prefix or bucket layout.
+- add support for tenant plugin and partial backups per tenant
 
 ---
 
