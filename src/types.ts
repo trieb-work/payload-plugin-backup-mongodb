@@ -1,13 +1,4 @@
 export type BackupPluginOptions = {
-  /** Enable/disable the plugin entirely. Default: true */
-  enabled?: boolean
-  /** Number of automatic (cron) backups to keep. Default: process.env.BACKUPS_TO_KEEP or 10 */
-  backupsToKeep?: number
-  /**
-   * When set, registers POST {@code /api/backup-mongodb/admin/seed} (demo DB + media seed).
-   * Omit to disable the seed endpoint entirely.
-   */
-  seedDemoDumpUrl?: string
   /**
    * Custom access control function. Receives the user object from Payload and returns true
    * if the user is allowed to see/use the backup dashboard.
@@ -17,5 +8,14 @@ export type BackupPluginOptions = {
    * also unset, the historical default applies: user has a role with slug `admin`, or —
    * for users collections that have no `roles` field — any authenticated user.
    */
-  access?: (user: Record<string, unknown> | null) => boolean
+  access?: (user: null | Record<string, unknown>) => boolean
+  /** Number of automatic (cron) backups to keep. Default: process.env.BACKUPS_TO_KEEP or 10 */
+  backupsToKeep?: number
+  /** Enable/disable the plugin entirely. Default: true */
+  enabled?: boolean
+  /**
+   * When set, registers POST {@code /api/backup-mongodb/admin/seed} (demo DB + media seed).
+   * Omit to disable the seed endpoint entirely.
+   */
+  seedDemoDumpUrl?: string
 }

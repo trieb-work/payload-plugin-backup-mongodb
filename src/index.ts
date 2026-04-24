@@ -1,33 +1,30 @@
-export { backupMongodbPlugin } from './plugin.js'
-export { backupPluginPublicApiPaths } from './publicApiPaths.js'
-export type { BackupPluginOptions } from './types.js'
-
+export { createTarGzip, resolveTarGzip } from './core/archive'
 export {
   createBackup,
   createMediaBackupFile,
   listBackups,
   resolveBackupListToken,
-} from './core/backup.js'
-export { getBackupSourcePreviewForManual } from './core/backupSourcePreview.js'
-export type { BackupSourcePreviewResponse } from './core/backupSourcePreview.js'
-export { restoreBackup, restoreSeedMedia } from './core/restore.js'
-export type { RestoreBackupOptions } from './core/restore.js'
+} from './core/backup'
+export { getBackupSourcePreviewForManual } from './core/backupSourcePreview'
+
+export type { BackupSourcePreviewResponse } from './core/backupSourcePreview'
+export { getDb } from './core/db'
+export type { MongoDb } from './core/db'
+export { restoreBackup, restoreSeedMedia } from './core/restore'
+export type { RestoreBackupOptions } from './core/restore'
 export {
   buildCollectionPreviewGroups,
   buildRestorePreviewGroups,
   getRestorePreviewForAdminRestore,
   loadRestoreBackupIndex,
   navVisibleCollectionOrderIndex,
-} from './core/restorePreview.js'
+} from './core/restorePreview'
 export type {
   RestorePreviewAdminHiddenReason,
   RestorePreviewFileKind,
   RestorePreviewGroup,
   RestorePreviewResponse,
-} from './core/restorePreview.js'
-export { getDb } from './core/db.js'
-export type { MongoDb } from './core/db.js'
-export { createTarGzip, resolveTarGzip } from './core/archive.js'
+} from './core/restorePreview'
 export {
   completeBackupTask,
   createBackupTask,
@@ -36,14 +33,17 @@ export {
   pollSecretsMatch,
   stripPollSecretForClient,
   updateBackupTask,
-} from './core/taskProgress.js'
+} from './core/taskProgress'
 export type {
   BackupTaskKind,
   BackupTaskProgress,
   BackupTaskStatus,
   BackupTaskWithPollSecret,
-} from './core/taskProgress.js'
+} from './core/taskProgress'
+export { backupMongodbPlugin } from './plugin'
+export { backupPluginPublicApiPaths } from './publicApiPaths'
+export type { BackupPluginOptions } from './types'
 
-export { createBlobName, getBackupSortTimeMs, transformBlobName } from './utils/blobName.js'
-export { formatBytes } from './utils/formatBytes.js'
-export { getCurrentDbName, getCurrentHostname } from './utils/hostname.js'
+export { createBlobName, getBackupSortTimeMs, transformBlobName } from './utils/blobName'
+export { formatBytes } from './utils/formatBytes'
+export { getCurrentDbName, getCurrentHostname } from './utils/hostname'

@@ -1,11 +1,11 @@
 import type { Config, Plugin } from 'payload'
 
-import type { BackupPluginOptions } from './types.js'
+import type { BackupPluginOptions } from './types'
 
-import { BackupSettingsCollection } from './collections/BackupSettings.js'
-import { BackupTasksCollection } from './collections/BackupTasks.js'
-import { BACKUP_SETTINGS_SLUG } from './core/backupSettings.js'
-import { createBackupMongodbEndpoints } from './endpoints/index.js'
+import { BackupSettingsCollection } from './collections/BackupSettings'
+import { BackupTasksCollection } from './collections/BackupTasks'
+import { BACKUP_SETTINGS_SLUG } from './core/backupSettings'
+import { createBackupMongodbEndpoints } from './endpoints/index'
 
 export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin => {
   return (incomingConfig: Config): Config => {
