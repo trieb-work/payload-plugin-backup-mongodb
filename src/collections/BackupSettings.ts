@@ -6,66 +6,60 @@ import type { CollectionConfig } from 'payload'
  */
 export const BackupSettingsCollection: CollectionConfig = {
   slug: 'backup-settings',
-  labels: {
-    singular: 'Backup settings',
-    plural: 'Backup settings',
-  },
-  admin: {
-    hidden: true,
-    defaultColumns: ['backupsToKeep', 'updatedAt'],
-  },
   access: {
     create: () => false,
+    delete: () => false,
     read: () => false,
     update: () => false,
-    delete: () => false,
+  },
+  admin: {
+    defaultColumns: ['backupsToKeep', 'updatedAt'],
+    hidden: true,
   },
   fields: [
     {
       name: 'backupsToKeep',
       type: 'number',
-      required: true,
-      defaultValue: 10,
-      min: 1,
-      max: 365,
       admin: {
         description: 'How many automatic (cron) backups to keep in blob storage for this project.',
       },
+      defaultValue: 10,
+      max: 365,
+      min: 1,
+      required: true,
     },
     {
       name: 'includeMediaForCron',
       type: 'checkbox',
-      label: 'Include media blobs in cron backups',
       defaultValue: true,
+      label: 'Include media blobs in cron backups',
     },
     {
       name: 'backupBlobReadWriteToken',
       type: 'text',
-      label: 'Backup Vercel Blob read/write token (optional override)',
       admin: {
         description:
           'If set, backup routes use this store instead of BLOB_READ_WRITE_TOKEN. Leave empty for backups on the default token.',
       },
+      label: 'Backup Vercel Blob read/write token (optional override)',
     },
     {
       name: 'backupBlobAccess',
       type: 'select',
-      label: 'Detected backup blob access level',
-      options: [
-        { label: 'Public', value: 'public' },
-        { label: 'Private', value: 'private' },
-      ],
       admin: {
         description:
           'Populated automatically when the backup token is validated. Controls the access level used when uploading new backup archives.',
         readOnly: true,
       },
+      label: 'Detected backup blob access level',
+      options: [
+        { label: 'Public', value: 'public' },
+        { label: 'Private', value: 'private' },
+      ],
     },
     {
       name: 'skipMongoCollections',
       type: 'array',
-      label: 'Mongo collections to skip (cron)',
-      labels: { singular: 'Collection', plural: 'Collections' },
       admin: {
         description:
           'MongoDB collection names excluded from cron backups (same rules as manual backup skips).',
@@ -77,7 +71,13 @@ export const BackupSettingsCollection: CollectionConfig = {
           required: true,
         },
       ],
+      label: 'Mongo collections to skip (cron)',
+      labels: { plural: 'Collections', singular: 'Collection' },
     },
   ],
+  labels: {
+    plural: 'Backup settings',
+    singular: 'Backup settings',
+  },
   timestamps: true,
 }

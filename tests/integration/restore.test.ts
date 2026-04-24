@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { restoreBackup } from '../../src/core/restore.js'
-import type { MongoDb } from '../../src/core/db.js'
 import { EJSON } from 'bson'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { MongoDb } from '../../src/core/db.js'
+
+import { restoreBackup } from '../../src/core/restore.js'
 
 vi.mock('@vercel/blob', () => ({
   put: vi.fn(),
@@ -9,9 +11,9 @@ vi.mock('@vercel/blob', () => ({
 
 vi.mock('node:fs/promises', () => ({
   default: {
+    mkdir: vi.fn(),
     readdir: vi.fn(),
     readFile: vi.fn(),
-    mkdir: vi.fn(),
     writeFile: vi.fn(),
   },
 }))
@@ -21,22 +23,22 @@ vi.mock('../../src/core/taskProgress', () => ({
 }))
 
 const mockCollection = {
-  find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
-  deleteMany: vi.fn().mockResolvedValue({ deletedCount: 0 }),
   bulkWrite: vi.fn().mockResolvedValue({ ok: 1, upsertedCount: 2 }),
+  deleteMany: vi.fn().mockResolvedValue({ deletedCount: 0 }),
+  find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
   indexes: vi.fn().mockResolvedValue([]),
 }
 
 const mockDb: MongoDb = {
-  listCollections: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
   collection: vi.fn().mockReturnValue(mockCollection),
+  listCollections: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
 }
 
 const mockLogger = {
+  debug: vi.fn(),
+  error: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
 }
 
 const mockPayload = {
@@ -53,9 +55,9 @@ const makeJsonBackupUrl = (data: Record<string, any[]>) => {
   const url = 'https://blob.com/backup.json'
   const encoded = new TextEncoder().encode(EJSON.stringify(data))
   global.fetch = vi.fn().mockResolvedValue({
+    arrayBuffer: vi.fn().mockResolvedValue(encoded.buffer),
     ok: true,
     status: 200,
-    arrayBuffer: vi.fn().mockResolvedValue(encoded.buffer),
   }) as any
   return url
 }
@@ -84,8 +86,8 @@ describe('restoreBackup', () => {
 
   it('skips collections in the blacklist', async () => {
     const data = {
-      users: [{ _id: 'user1', email: 'admin@example.com' }],
       pages: [{ _id: 'page1', title: 'Home' }],
+      users: [{ _id: 'user1', email: 'admin@example.com' }],
     }
     const url = makeJsonBackupUrl(data)
 
@@ -97,8 +99,8 @@ describe('restoreBackup', () => {
 
   it('skips backup-tasks when taskId is set so progress polling still works', async () => {
     const data = {
+      'backup-tasks': [{ _id: 'old-task', kind: 'backup', message: 'x', status: 'completed' }],
       pages: [{ _id: 'page1', title: 'Home' }],
-      'backup-tasks': [{ _id: 'old-task', kind: 'backup', status: 'completed', message: 'x' }],
     }
     const url = makeJsonBackupUrl(data)
 
@@ -128,7 +130,7 @@ describe('restoreBackup', () => {
   })
 
   it('uses unique indexes for upsert filter when available', async () => {
-    mockCollection.indexes.mockResolvedValueOnce([{ unique: true, key: { email: 1, _id: 1 } }])
+    mockCollection.indexes.mockResolvedValueOnce([{ key: { _id: 1, email: 1 }, unique: true }])
 
     const data = { users: [{ _id: 'u1', email: 'test@test.com' }] }
     const url = makeJsonBackupUrl(data)
@@ -143,9 +145,9 @@ describe('restoreBackup', () => {
 
   it('throws for unsupported file types', async () => {
     global.fetch = vi.fn().mockResolvedValue({
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
       ok: true,
       status: 200,
-      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
     }) as any
 
     await expect(restoreBackup(mockPayload, 'https://blob.com/backup.xml')).rejects.toThrow(

@@ -4,9 +4,10 @@ import { Button, Pill } from '@payloadcms/ui'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { BackupTaskProgress } from '../../core/taskProgress.js'
-import { backupPluginPublicApiPaths } from '../../publicApiPaths.js'
-import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
+import type { BackupTaskProgress } from '../../core/taskProgress'
+
+import { backupPluginPublicApiPaths } from '../../publicApiPaths'
+import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop'
 
 export interface TaskActionDangerConfirm {
   body: string
@@ -53,12 +54,12 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
 }) => {
   const router = useRouter()
   const dangerDialogRef = useRef<HTMLDialogElement>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const intervalRef = useRef<null | ReturnType<typeof setInterval>>(null)
   /** Avoid firing `onComplete` twice if the polling effect re-runs while status stays `completed`. */
-  const completeNotifyForTaskIdRef = useRef<string | null>(null)
+  const completeNotifyForTaskIdRef = useRef<null | string>(null)
   /** Lets the task GET succeed after restore replaces `users` (session becomes invalid). */
-  const pollSecretRef = useRef<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const pollSecretRef = useRef<null | string>(null)
+  const [error, setError] = useState<null | string>(null)
   const [isStarting, setIsStarting] = useState(false)
   const [task, setTask] = useState<BackupTaskProgress | null>(null)
 
@@ -178,11 +179,11 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
       setTask(null)
 
       const response = await fetch(endpoint, {
-        method: 'POST',
+        body: JSON.stringify(body ?? {}),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body ?? {}),
+        method: 'POST',
       })
 
       if (!response.ok) {
@@ -194,8 +195,8 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
       pollSecretRef.current = data.pollSecret ?? null
       const now = new Date().toISOString()
       setTask({
-        createdAt: now,
         id: data.taskId,
+        createdAt: now,
         kind,
         message: 'Task queued',
         status: 'queued',
@@ -228,14 +229,14 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
           buttonStyle={buttonStyle}
           className={className}
           disabled={isBusy || idleDisabled}
-          size="medium"
           onClick={() => void handlePrimaryClick()}
+          size="medium"
         >
           {label}
         </Button>
 
         {(task !== null || error !== null) && (
-          <div className="backup-task-status-slot" aria-live="polite">
+          <div aria-live="polite" className="backup-task-status-slot">
             <Pill pillStyle={pillStyle} size="small">
               {statusLabel}
             </Pill>
@@ -245,26 +246,30 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
       </div>
 
       {dangerConfirm ? (
-        <dialog
-          ref={dangerDialogRef}
-          className="backup-confirm-dialog backup-confirm-dialog--danger-confirm"
-          onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dangerDialogRef)}
-        >
+        <>
+          {/* Native <dialog>: backdrop dismiss; element not in jsx-a11y interactive list */}
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+          <dialog
+            className="backup-confirm-dialog backup-confirm-dialog--danger-confirm"
+            onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dangerDialogRef)}
+            ref={dangerDialogRef}
+          >
           <p className="backup-confirm-dialog__title">{dangerConfirm.title}</p>
           <p className="backup-confirm-dialog__body">{dangerConfirm.body}</p>
           <div className="backup-confirm-dialog__actions">
-            <Button buttonStyle="error" size="small" onClick={() => void handleDangerConfirm()}>
+            <Button buttonStyle="error" onClick={() => void handleDangerConfirm()} size="small">
               {dangerConfirm.confirmLabel ?? 'I understand — continue'}
             </Button>
             <Button
               buttonStyle="secondary"
-              size="small"
               onClick={() => dangerDialogRef.current?.close()}
+              size="small"
             >
               {dangerConfirm.cancelLabel ?? 'Go back'}
             </Button>
           </div>
         </dialog>
+        </>
       ) : null}
     </>
   )

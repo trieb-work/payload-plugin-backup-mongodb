@@ -1,21 +1,25 @@
 import type { Payload } from 'payload'
 
-export type MongoDb = {
-  listCollections: () => { toArray: () => Promise<{ name: string }[]> }
-  collection: (name: string) => {
-    find: (query: object) => { toArray: () => Promise<any[]> }
-    countDocuments: (query?: object) => Promise<number>
-    deleteMany: (query: object) => Promise<any>
-    bulkWrite: (operations: any[]) => Promise<any>
-    indexes: () => Promise<{ unique?: boolean; key: Record<string, unknown> }[]>
-  }
+type MongoosePayloadDb = {
+  connection?: { db?: MongoDb }
 }
 
-export async function getDb(payload: Payload): Promise<MongoDb> {
+export type MongoDb = {
+  collection: (name: string) => {
+    bulkWrite: (operations: unknown[]) => Promise<{ modifiedCount: number; upsertedCount: number }>
+    countDocuments: (query?: object) => Promise<number>
+    deleteMany: (query: object) => Promise<unknown>
+    find: (query: object) => { toArray: () => Promise<unknown[]> }
+    indexes: () => Promise<{ key: Record<string, unknown>; unique?: boolean }[]>
+  }
+  listCollections: () => { toArray: () => Promise<{ name: string }[]> }
+}
+
+export function getDb(payload: Payload): MongoDb {
   if (payload.db.name !== 'mongoose') {
     throw new Error('Backup failed: Not a mongoose database adapter')
   }
-  const db = (payload.db as any).connection?.db as MongoDb | undefined
+  const db = (payload.db as MongoosePayloadDb).connection?.db
   if (!db) {
     throw new Error('Backup failed: Database not initialized')
   }

@@ -1,12 +1,10 @@
-import type { BackupSourcePreviewResponse } from '../core/backupSourcePreview.js'
+import type { BackupSourcePreviewResponse } from '../core/backupSourcePreview'
 
 export function skipMongoNamesFromPreview(
   preview: BackupSourcePreviewResponse,
   selected: Record<string, boolean>,
 ): string[] {
-  return preview.groups
-    .filter((g) => selected[g.groupId] === false)
-    .flatMap((g) => g.mongoNames)
+  return preview.groups.filter((g) => selected[g.groupId] === false).flatMap((g) => g.mongoNames)
 }
 
 /**

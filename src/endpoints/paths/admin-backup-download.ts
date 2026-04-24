@@ -1,17 +1,20 @@
 import type { Endpoint, PayloadRequest } from 'payload'
 
+import type { BackupPluginOptions } from '../../types'
+
+import { streamBackupBlobForDownload } from '../../core/backupBlobIO'
 import {
   getResolvedCronBackupSettings,
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
-} from '../../core/backupSettings.js'
-import { streamBackupBlobForDownload } from '../../core/backupBlobIO.js'
-import type { BackupPluginOptions } from '../../types.js'
-import { requireBackupAdmin } from '../shared.js'
+} from '../../core/backupSettings'
+import { requireBackupAdmin } from '../shared'
 
 function queryParam(req: PayloadRequest, key: string): string {
   const fromPayload = req.searchParams.get(key)
-  if (fromPayload) return fromPayload.trim()
+  if (fromPayload) {
+    return fromPayload.trim()
+  }
   try {
     return new URL((req as unknown as Request).url).searchParams.get(key)?.trim() || ''
   } catch {
@@ -26,16 +29,18 @@ function queryParam(req: PayloadRequest, key: string): string {
  */
 export function createAdminBackupDownloadEndpoint(options: BackupPluginOptions): Endpoint {
   return {
-    method: 'get',
-    path: '/backup-mongodb/admin/backup-download',
     handler: async (req) => {
       const auth = await requireBackupAdmin(req, options)
-      if (auth instanceof Response) return auth
+      if (auth instanceof Response) {
+        return auth
+      }
 
       const { payload } = req
       const settings = await getResolvedCronBackupSettings(payload)
       const token = resolveBackupBlobToken(settings).trim()
-      if (!token) return new Response('Service unavailable', { status: 503 })
+      if (!token) {
+        return new Response('Service unavailable', { status: 503 })
+      }
 
       const pathname = queryParam(req, 'pathname')
       if (!pathname.startsWith('backups/')) {
@@ -47,11 +52,11 @@ export function createAdminBackupDownloadEndpoint(options: BackupPluginOptions):
 
       const preferred = resolveBackupBlobAccess(settings)
       const opened = await streamBackupBlobForDownload({
-        pathname,
-        token,
-        preferredAccess: preferred,
         blobUrl: blobUrl || undefined,
         downloadUrl: downloadUrl || undefined,
+        pathname,
+        preferredAccess: preferred,
+        token,
       })
 
       if (!opened) {
@@ -68,5 +73,7 @@ export function createAdminBackupDownloadEndpoint(options: BackupPluginOptions):
         },
       })
     },
+    method: 'get',
+    path: '/backup-mongodb/admin/backup-download',
   }
 }

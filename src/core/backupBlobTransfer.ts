@@ -1,12 +1,13 @@
-import { del, list } from '@vercel/blob'
 import type { Payload } from 'payload'
 
+import { del, list } from '@vercel/blob'
+
 import {
+  type BackupBlobAccessLevel,
   putBackupBlobContent,
   readBackupBlobContentFlexible,
-  type BackupBlobAccessLevel,
-} from './backupBlobIO.js'
-import { updateBackupTask } from './taskProgress.js'
+} from './backupBlobIO'
+import { updateBackupTask } from './taskProgress'
 
 export interface BackupBlobTransferProgress {
   failed: number
@@ -30,11 +31,11 @@ export interface TransferBackupBlobsOptions {
    */
   deleteFromSource?: boolean
   onProgress?: (p: BackupBlobTransferProgress) => void
-  taskId?: string
-  /** Access level for blobs written to the target store. */
-  targetAccess?: BackupBlobAccessLevel
   /** When set, prefer this access when reading from the source (token rotation). */
   sourceAccessHint?: BackupBlobAccessLevel
+  /** Access level for blobs written to the target store. */
+  targetAccess?: BackupBlobAccessLevel
+  taskId?: string
 }
 
 function sameToken(a: string, b: string): boolean {
@@ -46,7 +47,9 @@ async function writeTransferProgress(
   taskId: string | undefined,
   p: BackupBlobTransferProgress,
 ): Promise<void> {
-  if (!taskId) return
+  if (!taskId) {
+    return
+  }
   try {
     await updateBackupTask(payload, taskId, {
       message: JSON.stringify({

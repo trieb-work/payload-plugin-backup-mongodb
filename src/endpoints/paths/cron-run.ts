@@ -1,22 +1,24 @@
-import { after } from 'next/server'
 import type { Endpoint } from 'payload'
 
-import { createBackup } from '../../core/backup.js'
+import { after } from 'next/server'
+
+import type { BackupPluginOptions } from '../../types'
+
+import { createBackup } from '../../core/backup'
 import {
   getResolvedCronBackupSettings,
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
-} from '../../core/backupSettings.js'
-import type { BackupPluginOptions } from '../../types.js'
-import { requireCronBearer } from '../shared.js'
+} from '../../core/backupSettings'
+import { requireCronBearer } from '../shared'
 
 export function createCronRunEndpoint(options: BackupPluginOptions): Endpoint {
   return {
-    method: 'get',
-    path: '/backup-mongodb/cron/run',
     handler: async (req) => {
       const cronErr = requireCronBearer(req)
-      if (cronErr) return cronErr
+      if (cronErr) {
+        return cronErr
+      }
 
       const { payload } = req
       const settings = await getResolvedCronBackupSettings(payload)
@@ -28,12 +30,12 @@ export function createCronRunEndpoint(options: BackupPluginOptions): Endpoint {
       payload.logger.info('[backup-endpoint] Cron backup request accepted')
       after(
         createBackup(payload, {
-          cron: true,
           backupsToKeep: options.backupsToKeep ?? settings.backupsToKeep,
-          skipCollections: settings.skipMongoCollections,
-          includeMedia: settings.includeMediaForCron,
-          blobToken,
           blobAccess,
+          blobToken,
+          cron: true,
+          includeMedia: settings.includeMediaForCron,
+          skipCollections: settings.skipMongoCollections,
         }).catch((error) => {
           payload.logger.error({ err: error }, '[backup-endpoint] Cron backup failed')
           throw error
@@ -42,5 +44,7 @@ export function createCronRunEndpoint(options: BackupPluginOptions): Endpoint {
       payload.logger.info('[backup-endpoint] Cron backup queued')
       return new Response('Backup creation started', { status: 202 })
     },
+    method: 'get',
+    path: '/backup-mongodb/cron/run',
   }
 }

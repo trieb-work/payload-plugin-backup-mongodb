@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
 import {
   BACKUP_LABEL_MAX_LENGTH,
   createBlobName,
@@ -100,11 +101,11 @@ describe('transformBlobName', () => {
     const blobName = `backups/manual---${encodeURIComponent('localhost/mydb')}---${encodeURIComponent('example.com')}---14-1234567890123.json`
     const result = transformBlobName(blobName)
     expect(result).toEqual({
+      type: 'manual',
       collectionCount: 14,
       date: '1234567890123',
-      fileType: 'json',
-      type: 'manual',
       dbName: 'localhost/mydb',
+      fileType: 'json',
       hostname: 'example.com',
     })
   })
@@ -113,11 +114,11 @@ describe('transformBlobName', () => {
     const blobName = `backups/cron---${encodeURIComponent('localhost/mydb')}---${encodeURIComponent('app.vercel.app')}---8-1700000000000.tar.gz`
     const result = transformBlobName(blobName)
     expect(result).toEqual({
+      type: 'cron',
       collectionCount: 8,
       date: '1700000000000',
-      fileType: 'tar.gz',
-      type: 'cron',
       dbName: 'localhost/mydb',
+      fileType: 'tar.gz',
       hostname: 'app.vercel.app',
     })
   })

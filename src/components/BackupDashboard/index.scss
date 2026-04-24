@@ -1255,6 +1255,14 @@
   }
 }
 
+button.backup-help-icon {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font: inherit;
+  appearance: none;
+}
+
 .backup-help-icon {
   position: relative;
   display: inline-flex;

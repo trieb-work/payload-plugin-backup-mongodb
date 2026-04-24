@@ -1,14 +1,12 @@
 'use client'
 
+import { Button } from '@payloadcms/ui'
 import { useRef } from 'react'
 
-import { Button } from '@payloadcms/ui'
-
-import { backupPluginPublicApiPaths } from '../../publicApiPaths.js'
-import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
-
-import { RestoreBackupDialog } from './RestoreBackupDialog.client.js'
-import { TaskActionButton } from './TaskActionButton.client.js'
+import { backupPluginPublicApiPaths } from '../../publicApiPaths'
+import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop'
+import { RestoreBackupDialog } from './RestoreBackupDialog.client'
+import { TaskActionButton } from './TaskActionButton.client'
 
 type BackupItemActionsProps = {
   downloadUrl: string
@@ -22,8 +20,12 @@ export const BackupItemActions: React.FC<BackupItemActionsProps> = ({
   url,
 }) => {
   const downloadParams = new URLSearchParams({ pathname })
-  if (url) downloadParams.set('url', url)
-  if (downloadUrl) downloadParams.set('downloadUrl', downloadUrl)
+  if (url) {
+    downloadParams.set('url', url)
+  }
+  if (downloadUrl) {
+    downloadParams.set('downloadUrl', downloadUrl)
+  }
   const downloadHref = `${backupPluginPublicApiPaths.adminBackupDownload}?${downloadParams.toString()}`
   const deleteDialogRef = useRef<HTMLDialogElement>(null)
 
@@ -36,17 +38,19 @@ export const BackupItemActions: React.FC<BackupItemActionsProps> = ({
         <RestoreBackupDialog downloadUrl={downloadUrl} pathname={pathname} />
         <Button
           buttonStyle="secondary"
-          size="small"
           onClick={() => deleteDialogRef.current?.showModal()}
+          size="small"
         >
           Delete
         </Button>
       </div>
 
+      {/* Native <dialog>: backdrop dismiss; element not in jsx-a11y interactive list */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <dialog
-        ref={deleteDialogRef}
         className="backup-confirm-dialog"
         onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, deleteDialogRef)}
+        ref={deleteDialogRef}
       >
         <p className="backup-confirm-dialog__title">Delete this backup?</p>
         <p className="backup-confirm-dialog__body">This action cannot be undone.</p>
@@ -63,8 +67,8 @@ export const BackupItemActions: React.FC<BackupItemActionsProps> = ({
           />
           <Button
             buttonStyle="secondary"
-            size="small"
             onClick={() => deleteDialogRef.current?.close()}
+            size="small"
           >
             Cancel
           </Button>

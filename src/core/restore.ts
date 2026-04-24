@@ -1,36 +1,38 @@
+import type { Payload } from 'payload'
+
 import { EJSON } from 'bson'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { Payload } from 'payload'
-import { resolveTarGzip } from './archive.js'
+
+import { resolveTarGzip } from './archive'
+import { COLLECTION_FILE_NAME } from './backup'
 import {
+  type BackupBlobAccessLevel,
   putBackupBlobContent,
   readBackupBlobContentFlexible,
-  type BackupBlobAccessLevel,
-} from './backupBlobIO.js'
-import { getDb } from './db.js'
-import { COLLECTION_FILE_NAME } from './backup.js'
-import { updateBackupTask } from './taskProgress.js'
+} from './backupBlobIO'
+import { getDb } from './db'
+import { updateBackupTask } from './taskProgress'
 
 export interface RestoreBackupOptions {
   /**
-   * When false, skip uploading media blobs from a tar.gz archive (Mongo `media` and other
-   * collections still restore). Default true.
+   * When set, the archive is loaded with the backup token (fetch + SDK fallback; works for
+   * public and private blobs). Otherwise `downloadUrl` is fetched anonymously.
    */
-  restoreArchiveMedia?: boolean
-  /** Optional explicit Vercel Blob token used for archive media blob uploads. */
-  blobToken?: string
+  backupRead?: { pathname: string; token: string }
   /**
    * Preferred Vercel Blob access for re-uploaded media files. When the store rejects the
    * preferred level (e.g. a private-only store rejects `public`), the other level is tried
    * automatically. Defaults to `public`.
    */
   blobAccess?: BackupBlobAccessLevel
+  /** Optional explicit Vercel Blob token used for archive media blob uploads. */
+  blobToken?: string
   /**
-   * When set, the archive is loaded with the backup token (fetch + SDK fallback; works for
-   * public and private blobs). Otherwise `downloadUrl` is fetched anonymously.
+   * When false, skip uploading media blobs from a tar.gz archive (Mongo `media` and other
+   * collections still restore). Default true.
    */
-  backupRead?: { pathname: string; token: string }
+  restoreArchiveMedia?: boolean
 }
 
 export async function restoreBackup(
@@ -51,11 +53,11 @@ export async function restoreBackup(
   // Progress is stored in `backup-tasks`. Restoring that collection from the file
   // would delete/replace the active task doc and break GET .../admin/task/:id polling.
   const effectiveBlacklist = taskId
-    ? Array.from(new Set([...collectionBlacklist, 'backup-tasks']))
+    ? Array.from(new Set(['backup-tasks', ...collectionBlacklist]))
     : [...collectionBlacklist]
 
   payload.logger.info(
-    { url: urlBase, mergeData, blacklist: effectiveBlacklist },
+    { blacklist: effectiveBlacklist, mergeData, url: urlBase },
     '[restore] Starting restore',
   )
   if (taskId) {
@@ -65,7 +67,7 @@ export async function restoreBackup(
     })
   }
 
-  const db = await getDb(payload)
+  const db = getDb(payload)
   const archiveBytes = backupRead
     ? await readBackupBlobContentFlexible(backupRead.pathname, downloadUrl, backupRead.token)
     : await (async () => {
@@ -75,7 +77,7 @@ export async function restoreBackup(
         }
         return Buffer.from(await res.arrayBuffer())
       })()
-  let collections: Record<string, { _id?: any }[]> = {}
+  let collections: Record<string, Record<string, unknown>[]> = {}
 
   if (urlBase?.endsWith('.json')) {
     payload.logger.info('[restore] Parsing JSON backup')
@@ -100,7 +102,9 @@ export async function restoreBackup(
       ? files.filter((file) => file.name !== COLLECTION_FILE_NAME)
       : []
     if (!restoreArchiveMedia) {
-      payload.logger.info('[restore] Skipping archive media blob upload (restoreArchiveMedia=false)')
+      payload.logger.info(
+        '[restore] Skipping archive media blob upload (restoreArchiveMedia=false)',
+      )
     }
     payload.logger.info({ count: medias.length }, '[restore] Restoring media files to blob storage')
     if (taskId) {
@@ -136,7 +140,7 @@ export async function restoreBackup(
 
   const collectionNames = Object.keys(collections)
   payload.logger.info(
-    { total: collectionNames.length, blacklisted: effectiveBlacklist.length },
+    { blacklisted: effectiveBlacklist.length, total: collectionNames.length },
     '[restore] Restoring collections',
   )
   if (taskId) {
@@ -173,26 +177,24 @@ export async function restoreBackup(
         })
       }
       const res = await collection.bulkWrite(
-        collectionData.map((doc) => {
-          return {
-            updateOne: {
-              filter:
-                uniqueIndexes.length > 0
-                  ? {
-                      $or: [
-                        { _id: doc._id },
-                        ...uniqueIndexes.map((field) => ({ [field]: doc[field] })),
-                      ],
-                    }
-                  : { _id: doc._id },
-              update: { $set: doc },
-              upsert: true,
-            },
-          }
-        }),
+        collectionData.map((doc) => ({
+          updateOne: {
+            filter:
+              uniqueIndexes.length > 0
+                ? {
+                    $or: [
+                      { _id: doc._id },
+                      ...uniqueIndexes.map((field) => ({ [field]: doc[field] })),
+                    ],
+                  }
+                : { _id: doc._id },
+            update: { $set: doc },
+            upsert: true,
+          },
+        })),
       )
       payload.logger.debug(
-        { collection: collectionName, upserted: res.upsertedCount, modified: res.modifiedCount },
+        { collection: collectionName, modified: res.modifiedCount, upserted: res.upsertedCount },
         '[restore] Collection restored',
       )
     }
@@ -218,13 +220,16 @@ export async function restoreSeedMedia(payload: Payload, taskId?: string): Promi
         process.env.BLOB_READ_WRITE_TOKEN,
         'public',
       )
-      console.log('Restored seed media to vercel blob storage', file, { access: effectiveAccess })
+      payload.logger.info(
+        { access: effectiveAccess, file },
+        '[restore] Restored seed media to Vercel Blob storage',
+      )
     } else {
       const folderPath = path.join(process.cwd(), 'public/media')
       const publicPath = path.join(folderPath, file)
       await fs.mkdir(folderPath, { recursive: true })
       await fs.writeFile(publicPath, data)
-      console.log('Restored seed media to public directory', file, publicPath)
+      payload.logger.info({ file, publicPath }, '[restore] Restored seed media to public directory')
     }
     if (taskId) {
       await updateBackupTask(payload, taskId, {
@@ -232,6 +237,6 @@ export async function restoreSeedMedia(payload: Payload, taskId?: string): Promi
       })
     }
   }
-  console.log('Restored all files')
+  payload.logger.info({ count: files.length }, '[restore] Restored all seed media files')
   return files
 }
