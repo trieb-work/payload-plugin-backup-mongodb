@@ -13,21 +13,21 @@ const DIALOG_SELECTOR = 'dialog.backup-confirm-dialog--manual'
 const FAKE_PREVIEW = {
   groups: [
     {
+      adminHiddenReasons: [],
       groupId: 'posts',
       groupLabel: 'Posts',
-      mongoCollectionNames: ['posts'],
       members: [
         {
-          kind: 'collection' as const,
-          mongoCollectionName: 'posts',
-          docCount: 0,
-          labelSingular: 'Post',
-          labelPlural: 'Posts',
           adminHidden: false,
           adminHiddenReasons: [],
+          docCount: 0,
+          kind: 'collection' as const,
+          labelPlural: 'Posts',
+          labelSingular: 'Post',
+          mongoCollectionName: 'posts',
         },
       ],
-      adminHiddenReasons: [],
+      mongoCollectionNames: ['posts'],
     },
   ],
   mediaBlobCandidates: 0,
