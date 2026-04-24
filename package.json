@@ -47,6 +47,8 @@
     "dev:turbo": "node ./scripts/dev.mjs --turbo",
     "dev:generate-importmap": "pnpm dev:payload generate:importmap",
     "dev:generate-types": "pnpm dev:payload generate:types",
+    "build:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next build dev",
+    "start:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next start dev -p 3000",
     "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
     "generate:importmap": "pnpm dev:generate-importmap",
     "generate:types": "pnpm dev:generate-types",
@@ -58,7 +60,7 @@
     "test:int:watch": "vitest",
     "changeset": "changeset",
     "release": "pnpm run build && changeset publish",
-    "test:e2e": "playwright test",
+    "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -93,6 +95,7 @@
     "@vitest/coverage-v8": "^4.1.5",
     "copyfiles": "2.4.1",
     "cross-env": "^7.0.3",
+    "dotenv": "^16.4.7",
     "eslint": "^9.23.0",
     "eslint-config-next": "16.2.3",
     "graphql": "^16.8.1",

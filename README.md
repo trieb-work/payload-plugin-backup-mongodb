@@ -283,7 +283,17 @@ To keep backups in a **different** Vercel Blob project than media, open **Backup
 pnpm test:int
 ```
 
-The repo includes a `dev/` Payload + Next app (MongoDB Memory Server, etc.): `pnpm dev` → `http://localhost:3000/admin` (use credentials from the `dev/` app if documented there). In unit tests, external services like `@vercel/blob` and `bson` are often mocked with `vi.mock()`.
+### E2E (Playwright)
+
+End-to-end tests live in `tests/e2e/` and target the `dev/` Next + Payload app. **Locally**, start Mongo (or rely on the in-memory replica set when `DATABASE_URL` / `MONGODB_URI` are unset), then either run `pnpm dev` and `pnpm test:e2e` in another shell (Playwright reuses the server when not in `CI`), or run only `pnpm test:e2e` so Playwright starts `pnpm dev` for you.
+
+**CI** (`.github/workflows/e2e.yml`, same pattern as the reference `e2e.yml` in executive-search: MongoDB 7 service, `pnpm run build` then `pnpm run build:dev`, then Playwright against `next start`). Optional secret **`BLOB_READ_WRITE_TOKEN`** for fuller blob behaviour.
+
+### Optional: deploy `dev/` to Vercel
+
+`.github/workflows/deploy-dev-vercel.yml` runs when `dev/` (or related paths) change on `main`, or via **workflow_dispatch**, **only if** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` are set. Configure the Vercel project **Root Directory** to `dev` (`dev/vercel.json` wires install/build from the repo root).
+
+The repo includes a `dev/` Payload + Next app (MongoDB Memory Server when no URI is set): `pnpm dev` → `http://localhost:3000/admin` (login in `dev/helpers/credentials.ts`). In unit tests, external services like `@vercel/blob` and `bson` are often mocked with `vi.mock()`.
 
 ---
 

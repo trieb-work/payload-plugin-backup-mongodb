@@ -1,0 +1,91 @@
+# Pattern aligned with executive-search: Mongo service, Next production build, then Playwright
+# against `next start` (no dev watcher in CI).
+
+name: E2E (Playwright)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: '1'
+      PAYLOAD_CONFIG_PATH: ./dev/payload.config.ts
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
+      DATABASE_URL: mongodb://127.0.0.1:27017/payload-plugin-e2e
+      MONGODB_URI: mongodb://127.0.0.1:27017/payload-plugin-e2e
+      PAYLOAD_SECRET: e2e-payload-secret-ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Cache Next.js build (dev app)
+        uses: actions/cache@v4
+        with:
+          path: dev/.next/cache
+          key: ${{ runner.os }}-next-dev-${{ hashFiles('pnpm-lock.yaml', 'dev/next.config.mjs', 'dev/app/**', 'dev/payload.config.ts', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-next-dev-
+
+      - name: Build plugin (dist)
+        run: pnpm run build
+
+      - name: Build dev Next app
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: pnpm run build:dev
+
+      - name: Run Playwright E2E
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: pnpm run test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
