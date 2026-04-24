@@ -320,4 +320,4 @@ MIT
 
 ---
 
-Built and maintained by [TRWK](https://trwk.de), formerly [trieb.work](https://trieb.work).
+Built and maintained by [TRWK>](https://trwk.de), formerly [trieb.work](https://trieb.work).
