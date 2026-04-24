@@ -6,13 +6,9 @@ dotenv.config({ path: 'dev/.env', override: false })
 
 const isCI = Boolean(process.env.CI)
 const port = Number(process.env.PLAYWRIGHT_PORT || '3000')
-const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') || `http://127.0.0.1:${port}`
+const baseURL = process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') || `http://localhost:${port}`
 
-/** CI: production Next server (after `pnpm run build:dev`). Local: `pnpm dev` + CSS watcher. */
-const webServerCommand = isCI
-  ? `cross-env NODE_ENV=test NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts pnpm exec next start dev -p ${port}`
-  : `node ./scripts/dev.mjs`
+const webServerCommand = `cross-env NODE_ENV=test NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts pnpm exec next start dev -p ${port}`
 
 export default defineConfig({
   testDir: './tests/e2e',

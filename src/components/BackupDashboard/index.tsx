@@ -18,15 +18,22 @@ import { BackupListCollapsible, BackupSettingsModal, ManualBackupDialog } from '
 
 interface BackupDashboardProps {
   i18n: I18n
-  user: null | Record<string, unknown>
+  /** Optional on admin server props; omitted does not mean logged out (see `defaultIsHidden`). */
+  user?: null | Record<string, unknown>
 }
 
 function defaultIsHidden(
-  user: null | Record<string, unknown>,
+  user: null | Record<string, unknown> | undefined,
   access?: BackupPluginOptions['access'],
 ): boolean {
-  if (!user) {
+  if (user === null) {
     return true
+  }
+  if (user === undefined) {
+    if (access) {
+      return true
+    }
+    return false
   }
   if (access) {
     return !access(user)
@@ -46,11 +53,7 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, us
   if (!hasMongoConnection) {
     return (
       <>
-        <style
-          dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }}
-          data-payload-backup-mongodb="1"
-          id="payload-backup-mongodb-dashboard"
-        />
+        <style dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }} />
         <div className="backup-dashboard">
           <h2>
             Backups <span className="experimental">(experimental)</span>
@@ -95,7 +98,6 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, us
       <style
         dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }}
         data-payload-backup-mongodb="1"
-        id="payload-backup-mongodb-dashboard"
       />
       <div className="backup-dashboard">
         <h2>

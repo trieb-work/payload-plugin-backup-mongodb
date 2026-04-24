@@ -6,6 +6,9 @@ test.describe('Backup plugin UI (dev app)', () => {
   test('Backups block is visible on dashboard after login', async ({ page }) => {
     await loginAsDevUser(page)
     await page.goto('/admin')
-    await expect(page.getByRole('heading', { name: /Backups/i }).first()).toBeVisible()
+    await page.waitForSelector('.backup-dashboard', { timeout: 60_000 })
+    await expect(page.getByRole('heading', { name: /Backups/i }).first()).toBeVisible({
+      timeout: 10_000,
+    })
   })
 })

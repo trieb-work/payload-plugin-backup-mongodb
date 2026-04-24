@@ -7,4 +7,5 @@ export async function loginAsDevUser(page: Page): Promise<void> {
   await page.fill('#field-password', 'test')
   await page.click('.form-submit button')
   await page.waitForURL(/\/admin/)
+  await page.waitForSelector('.modular-dashboard')
 }

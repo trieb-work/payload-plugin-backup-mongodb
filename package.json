@@ -60,6 +60,7 @@
     "test:int:watch": "vitest",
     "changeset": "changeset",
     "release": "pnpm run build && changeset publish",
+    "playwright:install": "playwright install chromium",
     "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation playwright test",
     "typecheck": "tsc --noEmit"
   },
