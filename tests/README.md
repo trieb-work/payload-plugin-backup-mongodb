@@ -102,19 +102,32 @@ Newly covered P1 (must-have) user flows:
 - [x] **P1** — Backup settings modal opens, renders the schedule + retention + token sections with a mocked settings payload, and closes via Cancel (`tests/e2e/backup-settings-modal.spec.ts`).
 - [x] **P1** — Backup list Collapsible expands on click, opens the Filters dialog (label + date + media + source controls), and Done + Clear filters both work (`tests/e2e/backup-list-filters.spec.ts`).
 
-Deferred (needs a real or mocked blob endpoint):
+Env-gated roundtrip coverage (run automatically when `BLOB_READ_WRITE_TOKEN` is set):
 
-- [ ] **P2** — Manual backup happy path (submit → progress pill → "Backup created"); requires a mocked `@vercel/blob` layer in the dev server.
+- [x] **P2** — Full manual backup create → restore roundtrip through the UI: open the
+      Create manual Backup dialog, label it, wait for the `Done` status pill, assert the
+      row lands in the backup list, open its Restore dialog, deselect auth-session
+      collections, wait for `Done`, then clean up by clicking Delete and confirming. Skips
+      automatically when no blob token is configured. _(new — `tests/e2e/backup-create-restore.spec.ts`)_
+- [x] **P2** — Cron API roundtrip: `GET /api/backup-mongodb/cron/run` with the
+      `CRON_SECRET` bearer, poll `/cron/list` until the fresh `cron-` blob shows up,
+      then open the admin dashboard and assert the new entry is rendered as a
+      `Cron backup` row. Cleans up via `POST /admin/delete` to keep the bucket tidy.
+      Skips when either `BLOB_READ_WRITE_TOKEN` or `CRON_SECRET` is missing.
+      _(new — `tests/e2e/cron-trigger.spec.ts`)_
+
+Still deferred (needs a real or mocked blob endpoint):
+
 - [ ] **P2** — Settings modal: re-validate a freshly typed token and see the 422 error for a rejected one (needs a fake blob store responding with known access levels).
 - [ ] **P2** — Backup list filters actually hide rows once seeded data exists (host / db / media / source radio groups).
-- [ ] **P2** — Restore preview + restore end-to-end (select archive → preview groups → restore → redirect to `/admin`).
-- [ ] **P2** — Backup item actions: download + delete confirmations wired to the mocked blob.
+- [ ] **P2** — Backup item actions: download flow (redirect to signed URL) wired to the mocked blob — the delete path is now covered by the roundtrip spec above.
 - [ ] **P3** — Visual-regression / snapshot coverage for the `BackupDashboard` inline CSS.
-- [ ] **P3** — Full cron backup against a mocked blob server (requires a local fake `@vercel/blob` shim).
 
 > Note: the in-memory dev app intentionally runs without a `BLOB_READ_WRITE_TOKEN`, so any
-> test that exercises real blob I/O against the dev app must either mock the network layer
-> or set up a token in CI. Until then, the P2 blob-dependent flows above stay deferred.
+> test that exercises real blob I/O must set up a token either locally (via
+> `dev/.env.local`) or via the optional `BLOB_READ_WRITE_TOKEN` secret in CI. Tests that
+> need it `test.skip` themselves when the env is missing so the suite stays green in
+> either configuration.
 
 ---
 

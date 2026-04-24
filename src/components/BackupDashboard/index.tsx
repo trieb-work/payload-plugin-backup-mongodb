@@ -1,7 +1,5 @@
 import type { I18n } from '@payloadcms/translations'
-
-import configPromise from '@payload-config'
-import { getPayload } from 'payload'
+import type { Payload } from 'payload'
 
 import type { BackupPluginOptions } from '../../types'
 
@@ -18,6 +16,12 @@ import { BackupListCollapsible, BackupSettingsModal, ManualBackupDialog } from '
 
 interface BackupDashboardProps {
   i18n: I18n
+  /**
+   * Payload instance injected by Payload's admin `RenderServerComponent` as a server prop
+   * for `afterDashboard` components. Avoids importing `@payload-config` from the plugin,
+   * which does not resolve when the plugin runs from `node_modules`.
+   */
+  payload?: Payload
   /** Optional on admin server props; omitted does not mean logged out (see `defaultIsHidden`). */
   user?: null | Record<string, unknown>
 }
@@ -43,7 +47,7 @@ function defaultIsHidden(
   return !isUserAllowedByEnvRoles(user)
 }
 
-export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, user }) => {
+export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, payload, user }) => {
   if (defaultIsHidden(user)) {
     return null
   }
@@ -69,7 +73,24 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, us
     )
   }
 
-  const payload = await getPayload({ config: configPromise })
+  if (!payload) {
+    // Should not happen in a normal Payload admin render; guard for safety.
+    return (
+      <>
+        <style dangerouslySetInnerHTML={{ __html: backupDashboardInlineCss }} />
+        <div className="backup-dashboard">
+          <h2>
+            Backups <span className="experimental">(experimental)</span>
+          </h2>
+          <p className="backup-dashboard__setup-hint" role="status">
+            Backup dashboard could not initialise: Payload instance was not provided by the admin
+            server props.
+          </p>
+        </div>
+      </>
+    )
+  }
+
   const backupBlobToken = await resolveBackupListToken(payload)
   const hasBlobToken = backupBlobToken.trim().length > 0
 
