@@ -5,7 +5,7 @@
  */
 export function maskBlobReadWriteToken(raw: string): string {
   const t = raw.trim()
-  if (t.length === 0) return ''
+  if (t.length === 0) {return ''}
 
   /** Fixed number of asterisks between prefix and suffix (UI stays compact for any token length). */
   const middleRun = 32
@@ -35,9 +35,9 @@ export function shouldPreserveBackupBlobTokenField(
   clientValue: string,
   hadStoredToken: boolean,
 ): boolean {
-  if (!hadStoredToken) return false
+  if (!hadStoredToken) {return false}
   const v = clientValue.trim()
-  if (v.length === 0) return true
-  if (/\*{2,}/.test(v)) return true
+  if (v.length === 0) {return true}
+  if (/\*{2,}/.test(v)) {return true}
   return false
 }

@@ -1,21 +1,36 @@
 import { del, put } from '@vercel/blob'
 
-import type { BackupBlobAccessLevel } from './backupBlobIO.js'
+import type { BackupBlobAccessLevel } from './backupBlobIO'
 
 export interface BackupBlobTokenValidation {
-  ok: boolean
   /** Detected access level the store accepts (set when ok). */
   access?: BackupBlobAccessLevel
   /** Short error description when validation fails. */
   error?: string
+  ok: boolean
 }
 
 const PROBE_PATH_PREFIX = 'backups/.backup-mongodb-probe-'
 
 function looksLikeAccessModeRejection(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error ?? '')
+  const msg =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : error == null
+          ? ''
+          : (() => {
+              try {
+                return JSON.stringify(error)
+              } catch {
+                return 'unknown'
+              }
+            })()
   const lower = msg.toLowerCase()
-  if (!lower.includes('access')) return false
+  if (!lower.includes('access')) {
+    return false
+  }
   return (
     lower.includes('public') ||
     lower.includes('private') ||
@@ -29,11 +44,11 @@ function looksLikeAccessModeRejection(error: unknown): boolean {
  * `private` first and falls back to `public` so the caller sees which access modes the store
  * accepts. Non-access errors (auth, network, quota…) are reported as invalid.
  */
-export async function validateBackupBlobToken(
-  token: string,
-): Promise<BackupBlobTokenValidation> {
+export async function validateBackupBlobToken(token: string): Promise<BackupBlobTokenValidation> {
   const trimmed = token.trim()
-  if (!trimmed) return { error: 'Token is empty', ok: false }
+  if (!trimmed) {
+    return { error: 'Token is empty', ok: false }
+  }
 
   const probePath = `${PROBE_PATH_PREFIX}${Date.now().toString(36)}-${Math.random()
     .toString(36)
@@ -52,7 +67,9 @@ export async function validateBackupBlobToken(
       uploadedUrl = result?.url
       return { access, ok: true }
     } catch (error) {
-      if (firstError === undefined) firstError = error
+      if (firstError === undefined) {
+        firstError = error
+      }
       if (!looksLikeAccessModeRejection(error)) {
         return { error: error instanceof Error ? error.message : 'Token rejected', ok: false }
       }

@@ -4,11 +4,11 @@ import { Button } from '@payloadcms/ui'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { RestorePreviewResponse } from '../../core/restorePreview.js'
-import { backupPluginPublicApiPaths } from '../../publicApiPaths.js'
-import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
+import type { RestorePreviewResponse } from '../../core/restorePreview'
 
-import { TaskActionButton } from './TaskActionButton.client.js'
+import { backupPluginPublicApiPaths } from '../../publicApiPaths'
+import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop'
+import { TaskActionButton } from './TaskActionButton.client'
 
 type RestoreBackupDialogProps = {
   downloadUrl: string
@@ -19,7 +19,9 @@ function hiddenPills(
   reasons: RestorePreviewResponse['groups'][number]['adminHiddenReasons'],
 ): string[] {
   const out: string[] = []
-  if (reasons.includes('collection-config')) out.push('Hidden in admin')
+  if (reasons.includes('collection-config')) {
+    out.push('Hidden in admin')
+  }
   return out
 }
 
@@ -54,10 +56,10 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
 }) => {
   const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const postSuccessCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [preview, setPreview] = useState<RestorePreviewResponse | null>(null)
-  const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const postSuccessCloseTimerRef = useRef<null | ReturnType<typeof setTimeout>>(null)
+  const [preview, setPreview] = useState<null | RestorePreviewResponse>(null)
+  const [phase, setPhase] = useState<'error' | 'idle' | 'loading' | 'ready'>('idle')
+  const [errorMessage, setErrorMessage] = useState<null | string>(null)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [restoreAllCollections, setRestoreAllCollections] = useState(false)
   const [restoreArchiveMedia, setRestoreArchiveMedia] = useState(true)
@@ -73,7 +75,9 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
 
   useEffect(() => {
     const el = dialogRef.current
-    if (!el) return
+    if (!el) {
+      return
+    }
     const onClose = () => {
       if (postSuccessCloseTimerRef.current) {
         clearTimeout(postSuccessCloseTimerRef.current)
@@ -94,7 +98,9 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
   }, [])
 
   useEffect(() => {
-    if (!preview) return
+    if (!preview) {
+      return
+    }
     setSelected(
       Object.fromEntries(
         preview.groups.map((g) => {
@@ -120,15 +126,15 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
       const locale =
         typeof document !== 'undefined' ? (document.documentElement.lang || 'en').slice(0, 2) : 'en'
       const response = await fetch(backupPluginPublicApiPaths.adminRestorePreview, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           locale,
           pathname,
           url: downloadUrl,
         }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       })
-      const data = (await response.json()) as RestorePreviewResponse & { error?: string }
+      const data = (await response.json()) as { error?: string } & RestorePreviewResponse
       if (!response.ok) {
         throw new Error(data.error || 'Could not analyse backup')
       }
@@ -152,20 +158,28 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
   }
 
   const skipCollections = useMemo(() => {
-    if (!preview) return []
-    if (restoreAllCollections) return []
+    if (!preview) {
+      return []
+    }
+    if (restoreAllCollections) {
+      return []
+    }
     return preview.groups.filter((g) => selected[g.groupId] === false).flatMap((g) => g.mongoNames)
   }, [preview, restoreAllCollections, selected])
 
   const willAutoLogout = useMemo(() => {
-    if (!preview) return false
+    if (!preview) {
+      return false
+    }
     return preview.groups.some(
       (g) => (restoreAllCollections || selected[g.groupId] !== false) && g.affectsAuthSession,
     )
   }, [preview, restoreAllCollections, selected])
 
   const needsAuthLockoutConfirm = useCallback(() => {
-    if (!preview) return false
+    if (!preview) {
+      return false
+    }
     return preview.groups.some(
       (g) =>
         isRestoreSignInAgainGroup(g.groupId) &&
@@ -200,20 +214,22 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
 
   return (
     <>
-      <Button buttonStyle="secondary" size="small" onClick={openDialog}>
+      <Button buttonStyle="secondary" onClick={openDialog} size="small">
         Restore
       </Button>
 
+      {/* Native <dialog>: backdrop dismiss; element not in jsx-a11y interactive list */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <dialog
-        ref={dialogRef}
         className="backup-confirm-dialog backup-confirm-dialog--restore"
         onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dialogRef)}
+        ref={dialogRef}
       >
         <p className="backup-confirm-dialog__title">Restore this backup?</p>
 
         <div className="backup-confirm-dialog__body restore-preview">
           {phase === 'loading' && (
-            <div className="restore-preview__loading-block" aria-live="polite">
+            <div aria-live="polite" className="restore-preview__loading-block">
               <p className="restore-preview__status">Downloading and analysing backup…</p>
               <div className="restore-preview__loading-line" />
               <div className="restore-preview__loading-line restore-preview__loading-line--short" />
@@ -228,7 +244,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                 You can still start restore below. If this backup replaces users or sessions, sign
                 out manually afterwards if you are not redirected automatically.
               </p>
-              <Button buttonStyle="secondary" size="small" onClick={() => void loadPreview()}>
+              <Button buttonStyle="secondary" onClick={() => void loadPreview()} size="small">
                 Retry analysis
               </Button>
             </div>
@@ -251,9 +267,9 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                 <div className="restore-preview__all-block">
                   <label className="restore-preview__all-block-head">
                     <input
-                      type="checkbox"
-                      className="checkbox-input__input restore-preview__group-check"
+                      aria-label="Restore all collections"
                       checked
+                      className="checkbox-input__input restore-preview__group-check"
                       onChange={() =>
                         setRestoreAllCollections((prev) => {
                           const next = !prev
@@ -265,11 +281,12 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                           return next
                         })
                       }
+                      type="checkbox"
                     />
                     <span className="restore-preview__media-label">Restore all collections</span>
                   </label>
                   {preview.groups.length > 0 ? (
-                    <ul className="restore-preview__all-list" aria-label="Collections in backup">
+                    <ul aria-label="Collections in backup" className="restore-preview__all-list">
                       {preview.groups.map((g) => {
                         const isMedia = g.groupId === 'media'
                         const rowEmpty = isRestoreRowVisuallyEmpty(g, preview)
@@ -290,7 +307,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                         }
 
                         return (
-                          <li key={g.groupId} className="restore-preview__all-item">
+                          <li className="restore-preview__all-item" key={g.groupId}>
                             <span className="restore-preview__all-name">
                               {g.displayTitle}
                               {signInAgain ? (
@@ -311,10 +328,11 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                   {hasMediaBlobOption ? (
                     <label className="restore-preview__media-block restore-preview__media-block--nested">
                       <input
-                        type="checkbox"
-                        className="checkbox-input__input restore-preview__group-check"
+                        aria-label={`Restore media files from backup (${preview.mediaBlobCount} files in archive)`}
                         checked={restoreArchiveMedia}
+                        className="checkbox-input__input restore-preview__group-check"
                         onChange={() => setRestoreArchiveMedia((v) => !v)}
+                        type="checkbox"
                       />
                       <span className="restore-preview__media-label">
                         Restore media files from backup? ({preview.mediaBlobCount} file
@@ -327,9 +345,9 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                 <>
                   <label className="restore-preview__media-block">
                     <input
-                      type="checkbox"
-                      className="checkbox-input__input restore-preview__group-check"
+                      aria-label="Restore all collections"
                       checked={false}
+                      className="checkbox-input__input restore-preview__group-check"
                       onChange={() =>
                         setRestoreAllCollections((prev) => {
                           const next = !prev
@@ -341,11 +359,12 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                           return next
                         })
                       }
+                      type="checkbox"
                     />
                     <span className="restore-preview__media-label">Restore all collections</span>
                   </label>
 
-                  <ul className="restore-preview__list" aria-label="Collections in backup">
+                  <ul aria-label="Collections in backup" className="restore-preview__list">
                     {preview.groups.map((g) => {
                       const adminPills = hiddenPills(g.adminHiddenReasons)
                       const isMedia = g.groupId === 'media'
@@ -355,15 +374,15 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
 
                       return (
                         <li
-                          key={g.groupId}
                           className={`restore-preview__group${rowEmpty ? 'restore-preview__group--empty' : ''}`}
+                          key={g.groupId}
                         >
                           <div className="restore-preview__group-head">
                             <label className="restore-preview__group-label">
                               <input
-                                type="checkbox"
-                                className="checkbox-input__input restore-preview__group-check"
+                                aria-label={`Restore collection ${g.displayTitle}`}
                                 checked={selected[g.groupId] !== false}
+                                className="checkbox-input__input restore-preview__group-check"
                                 disabled={checkboxDisabled}
                                 onChange={() => {
                                   setSelected((prev) => {
@@ -371,6 +390,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                                     return { ...prev, [g.groupId]: !isOn }
                                   })
                                 }}
+                                type="checkbox"
                               />
                               <span className="restore-preview__group-title">{g.displayTitle}</span>
                             </label>
@@ -417,10 +437,11 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                             {isMedia && hasMediaBlobOption && (
                               <label className="restore-preview__media-block restore-preview__media-block--nested">
                                 <input
-                                  type="checkbox"
-                                  className="checkbox-input__input restore-preview__group-check"
+                                  aria-label={`Restore media files from backup (${preview.mediaBlobCount} files in archive)`}
                                   checked={restoreArchiveMedia}
+                                  className="checkbox-input__input restore-preview__group-check"
                                   onChange={() => setRestoreArchiveMedia((v) => !v)}
+                                  type="checkbox"
                                 />
                                 <span className="restore-preview__media-label">
                                   Restore media files from backup? ({preview.mediaBlobCount} file
@@ -431,7 +452,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                             {adminPills.length > 0 && (
                               <div className="restore-preview__pills">
                                 {adminPills.map((t) => (
-                                  <span key={t} className="restore-preview__pill">
+                                  <span className="restore-preview__pill" key={t}>
                                     {t}
                                   </span>
                                 ))}
@@ -468,7 +489,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
             pendingLabel="Restoring..."
             redirectOnComplete={willAutoLogout ? '/admin/logout' : undefined}
           />
-          <Button buttonStyle="secondary" size="small" onClick={() => dialogRef.current?.close()}>
+          <Button buttonStyle="secondary" onClick={() => dialogRef.current?.close()} size="small">
             Cancel
           </Button>
         </div>

@@ -1,47 +1,50 @@
 'use client'
 
 import type { FC } from 'react'
+
 import { Button } from '@payloadcms/ui'
 
-import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview.js'
+import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview'
 
 function hiddenPills(
   reasons: BackupSourcePreviewResponse['groups'][number]['adminHiddenReasons'],
 ): string[] {
   const out: string[] = []
-  if (reasons.includes('collection-config')) out.push('Hidden in admin')
+  if (reasons.includes('collection-config')) {
+    out.push('Hidden in admin')
+  }
   return out
 }
 
 export interface CollectionBackupPreviewBodyProps {
-  phase: 'idle' | 'loading' | 'ready' | 'error'
-  errorMessage: string | null
-  onRetry: () => void
-  preview: BackupSourcePreviewResponse | null
-  selected: Record<string, boolean>
-  onToggleGroup: (groupId: string) => void
-  includeMediaBlobs: boolean
-  onToggleIncludeMedia: () => void
-  includeAllCollections: boolean
-  onToggleIncludeAllCollections: () => void
-  includeAllLabel?: string
   /** When true, omit the scrollable dialog body wrapper (use inside another `restore-preview` container). */
   embedded?: boolean
+  errorMessage: null | string
+  includeAllCollections: boolean
+  includeAllLabel?: string
+  includeMediaBlobs: boolean
+  onRetry: () => void
+  onToggleGroup: (groupId: string) => void
+  onToggleIncludeAllCollections: () => void
+  onToggleIncludeMedia: () => void
+  phase: 'error' | 'idle' | 'loading' | 'ready'
+  preview: BackupSourcePreviewResponse | null
+  selected: Record<string, boolean>
 }
 
 export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> = ({
-  phase,
+  embedded = false,
   errorMessage,
+  includeAllCollections,
+  includeAllLabel = 'Backup all collections',
+  includeMediaBlobs,
   onRetry,
+  onToggleGroup,
+  onToggleIncludeAllCollections,
+  onToggleIncludeMedia,
+  phase,
   preview,
   selected,
-  onToggleGroup,
-  includeMediaBlobs,
-  onToggleIncludeMedia,
-  includeAllCollections,
-  onToggleIncludeAllCollections,
-  includeAllLabel = 'Backup all collections',
-  embedded = false,
 }) => {
   const mediaGroupIncluded = preview ? includeAllCollections || selected['media'] !== false : false
   const hasMediaBlobOption = Boolean(
@@ -51,7 +54,7 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
   const inner = (
     <>
       {phase === 'loading' && (
-        <div className="restore-preview__loading-block" aria-live="polite">
+        <div aria-live="polite" className="restore-preview__loading-block">
           <p className="restore-preview__status">Loading collections…</p>
           <div className="restore-preview__loading-line" />
           <div className="restore-preview__loading-line restore-preview__loading-line--short" />
@@ -62,7 +65,7 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
       {phase === 'error' && (
         <div className="restore-preview__error">
           <p>{errorMessage}</p>
-          <Button buttonStyle="secondary" size="small" onClick={() => void onRetry()}>
+          <Button buttonStyle="secondary" onClick={() => void onRetry()} size="small">
             Retry
           </Button>
         </div>
@@ -85,21 +88,22 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
             <div className="restore-preview__all-block">
               <label className="restore-preview__all-block-head">
                 <input
-                  type="checkbox"
-                  className="checkbox-input__input restore-preview__group-check"
+                  aria-label={includeAllLabel}
                   checked
+                  className="checkbox-input__input restore-preview__group-check"
                   onChange={onToggleIncludeAllCollections}
+                  type="checkbox"
                 />
                 <span className="restore-preview__media-label">{includeAllLabel}</span>
               </label>
               {preview.groups.length > 0 ? (
-                <ul className="restore-preview__all-list" aria-label="Collections to back up">
+                <ul aria-label="Collections to back up" className="restore-preview__all-list">
                   {preview.groups.map((g) => {
                     const mainDocs = g.main?.docCount ?? 0
                     const versionDocs = g.versions?.docCount ?? 0
                     const totalDocs = mainDocs + versionDocs
                     return (
-                      <li key={g.groupId} className="restore-preview__all-item">
+                      <li className="restore-preview__all-item" key={g.groupId}>
                         <span className="restore-preview__all-name">{g.displayTitle}</span>
                         <span className="restore-preview__all-count">
                           {totalDocs} doc{totalDocs === 1 ? '' : 's'}
@@ -120,10 +124,11 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
               {hasMediaBlobOption ? (
                 <label className="restore-preview__media-block restore-preview__media-block--nested">
                   <input
-                    type="checkbox"
-                    className="checkbox-input__input restore-preview__group-check"
+                    aria-label={`Include media files from storage (${preview.mediaBlobCandidates} files)`}
                     checked={includeMediaBlobs}
+                    className="checkbox-input__input restore-preview__group-check"
                     onChange={onToggleIncludeMedia}
+                    type="checkbox"
                   />
                   <span className="restore-preview__media-label">
                     Include media files from storage? ({preview.mediaBlobCandidates} file
@@ -136,27 +141,29 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
             <>
               <label className="restore-preview__media-block">
                 <input
-                  type="checkbox"
-                  className="checkbox-input__input restore-preview__group-check"
+                  aria-label={includeAllLabel}
                   checked={false}
+                  className="checkbox-input__input restore-preview__group-check"
                   onChange={onToggleIncludeAllCollections}
+                  type="checkbox"
                 />
                 <span className="restore-preview__media-label">{includeAllLabel}</span>
               </label>
 
-              <ul className="restore-preview__list" aria-label="Collections to back up">
+              <ul aria-label="Collections to back up" className="restore-preview__list">
                 {preview.groups.map((g) => {
                   const adminPills = hiddenPills(g.adminHiddenReasons)
                   const isMedia = g.groupId === 'media'
                   return (
-                    <li key={g.groupId} className="restore-preview__group">
+                    <li className="restore-preview__group" key={g.groupId}>
                       <div className="restore-preview__group-head">
                         <label className="restore-preview__group-label">
                           <input
-                            type="checkbox"
-                            className="checkbox-input__input restore-preview__group-check"
+                            aria-label={`Include collection ${g.displayTitle} in backup`}
                             checked={selected[g.groupId] !== false}
+                            className="checkbox-input__input restore-preview__group-check"
                             onChange={() => onToggleGroup(g.groupId)}
+                            type="checkbox"
                           />
                           <span className="restore-preview__group-title">{g.displayTitle}</span>
                         </label>
@@ -185,10 +192,11 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                         {isMedia && hasMediaBlobOption && (
                           <label className="restore-preview__media-block restore-preview__media-block--nested">
                             <input
-                              type="checkbox"
-                              className="checkbox-input__input restore-preview__group-check"
+                              aria-label={`Include media files from storage (${preview.mediaBlobCandidates} files)`}
                               checked={includeMediaBlobs}
+                              className="checkbox-input__input restore-preview__group-check"
                               onChange={onToggleIncludeMedia}
+                              type="checkbox"
                             />
                             <span className="restore-preview__media-label">
                               Include media files from storage? ({preview.mediaBlobCandidates} file
@@ -199,7 +207,7 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                         {adminPills.length > 0 && (
                           <div className="restore-preview__pills">
                             {adminPills.map((t) => (
-                              <span key={t} className="restore-preview__pill">
+                              <span className="restore-preview__pill" key={t}>
                                 {t}
                               </span>
                             ))}

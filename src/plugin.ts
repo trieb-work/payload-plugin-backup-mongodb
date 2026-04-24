@@ -58,10 +58,25 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
         }
         try {
           if (payload.db.name === 'mongoose') {
-            const db = (payload.db as any).connection.db
-            await db
-              .collection('backup-tasks')
-              .createIndex({ updatedAt: 1 }, { background: true, expireAfterSeconds: 1800 })
+            const mongooseDb = payload.db as {
+              connection?: {
+                db?: {
+                  collection: (name: string) => {
+                    createIndex: (
+                      keys: Record<string, number>,
+                      options?: { background?: boolean; expireAfterSeconds?: number },
+                    ) => Promise<string>
+                  }
+                }
+              }
+            }
+            const db = mongooseDb.connection?.db
+            if (db) {
+              await db.collection('backup-tasks').createIndex(
+                { updatedAt: 1 },
+                { background: true, expireAfterSeconds: 1800 },
+              )
+            }
           }
         } catch {
           payload.logger.warn('[backup-plugin] Could not create TTL index on backup-tasks')

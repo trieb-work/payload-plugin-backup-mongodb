@@ -1,13 +1,13 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto'
-
 import type { Payload } from 'payload'
 
-export type BackupTaskKind = 'backup' | 'restore' | 'seed' | 'delete' | 'blobTransfer'
-export type BackupTaskStatus = 'queued' | 'running' | 'completed' | 'failed'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
+
+export type BackupTaskKind = 'backup' | 'blobTransfer' | 'delete' | 'restore' | 'seed'
+export type BackupTaskStatus = 'completed' | 'failed' | 'queued' | 'running'
 
 export type BackupTaskProgress = {
   createdAt: string
-  error?: string | null
+  error?: null | string
   id: string
   kind: BackupTaskKind
   message: string
@@ -16,15 +16,19 @@ export type BackupTaskProgress = {
 }
 
 /** Task row as stored / returned from Payload (includes server-only poll secret). */
-export type BackupTaskWithPollSecret = BackupTaskProgress & {
-  pollSecret?: string | null
-}
+export type BackupTaskWithPollSecret = {
+  pollSecret?: null | string
+} & BackupTaskProgress
 
-export function pollSecretsMatch(provided: string, stored: string | null | undefined): boolean {
-  if (!stored || !provided) return false
+export function pollSecretsMatch(provided: string, stored: null | string | undefined): boolean {
+  if (!stored || !provided) {
+    return false
+  }
   const a = Buffer.from(provided, 'utf8')
   const b = Buffer.from(stored, 'utf8')
-  if (a.length !== b.length) return false
+  if (a.length !== b.length) {
+    return false
+  }
   return timingSafeEqual(a, b)
 }
 
@@ -44,7 +48,7 @@ export async function createBackupTask(
     data: { kind, message, pollSecret, status: 'queued' },
     overrideAccess: true,
   })
-  return { pollSecret, taskId: doc.id as string }
+  return { pollSecret, taskId: String(doc.id) }
 }
 
 export async function getBackupTask(
@@ -53,8 +57,8 @@ export async function getBackupTask(
 ): Promise<BackupTaskWithPollSecret | undefined> {
   try {
     const doc = await payload.findByID({
-      collection: 'backup-tasks',
       id,
+      collection: 'backup-tasks',
       overrideAccess: true,
     })
     return doc as unknown as BackupTaskWithPollSecret
@@ -70,8 +74,8 @@ export async function updateBackupTask(
 ): Promise<BackupTaskProgress | undefined> {
   try {
     const doc = await payload.update({
-      collection: 'backup-tasks',
       id,
+      collection: 'backup-tasks',
       data: patch,
       overrideAccess: true,
     })

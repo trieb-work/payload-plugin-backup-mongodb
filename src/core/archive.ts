@@ -1,8 +1,8 @@
-import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
+import zlib from 'node:zlib'
 import tar from 'tar-stream'
 
-export function createTarGzip(files: { name: string; content: Buffer }[]): Promise<Buffer> {
+export function createTarGzip(files: { content: Buffer; name: string }[]): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const pack = tar.pack()
     const gzip = zlib.createGzip()
@@ -24,12 +24,12 @@ export function createTarGzip(files: { name: string; content: Buffer }[]): Promi
 
 export function resolveTarGzip(
   fileBuffer: Buffer,
-): Promise<{ name: string; content: Buffer }[]> {
-  return new Promise<{ name: string; content: Buffer }[]>((resolve, reject) => {
+): Promise<{ content: Buffer; name: string }[]> {
+  return new Promise<{ content: Buffer; name: string }[]>((resolve, reject) => {
     const gunzip = zlib.createGunzip()
     const extract = tar.extract()
 
-    const files: { name: string; content: Buffer }[] = []
+    const files: { content: Buffer; name: string }[] = []
 
     extract.on('entry', (header, stream, next) => {
       const chunks: Buffer[] = []

@@ -1,18 +1,18 @@
 'use client'
 
 import type { FC } from 'react'
+
 import { Button } from '@payloadcms/ui'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
-import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview.js'
-import { backupPluginPublicApiPaths } from '../../publicApiPaths.js'
-import { selectedFromSkipMongoNames, skipMongoNamesFromPreview } from '../../utils/backupSelection.js'
-import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
+import type { BackupSourcePreviewResponse } from '../../core/backupSourcePreview'
+import type { BackupTaskProgress } from '../../core/taskProgress'
 
-import { CollectionBackupPreviewBody } from './CollectionBackupPreviewBody.client.js'
-
-import type { BackupTaskProgress } from '../../core/taskProgress.js'
+import { backupPluginPublicApiPaths } from '../../publicApiPaths'
+import { selectedFromSkipMongoNames, skipMongoNamesFromPreview } from '../../utils/backupSelection'
+import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop'
+import { CollectionBackupPreviewBody } from './CollectionBackupPreviewBody.client'
 
 function parseBlobTransferTaskMessage(msg: string): {
   failed: number
@@ -22,7 +22,9 @@ function parseBlobTransferTaskMessage(msg: string): {
 } | null {
   try {
     const o = JSON.parse(msg) as Record<string, unknown>
-    if (typeof o.total !== 'number' || typeof o.transferred !== 'number') return null
+    if (typeof o.total !== 'number' || typeof o.transferred !== 'number') {
+      return null
+    }
     return {
       failed: typeof o.failed === 'number' ? o.failed : 0,
       pathname: typeof o.pathname === 'string' ? o.pathname : undefined,
@@ -60,45 +62,54 @@ function settingsHelpIconClassName(multiline?: boolean): string {
 
 /** Info icon + CSS tooltip; fixed positioning so scroll/clipping in the dialog body does not hide it. */
 const SettingsHelpTip: FC<SettingsHelpTipProps> = ({ multiline, tip }) => {
-  const elRef = useRef<HTMLSpanElement>(null)
+  const elRef = useRef<HTMLButtonElement>(null)
 
   const syncTooltipAnchor = useCallback(() => {
     const el = elRef.current
-    if (!el) return
+    if (!el) {
+      return
+    }
     const r = el.getBoundingClientRect()
     el.style.setProperty('--backup-tip-x', `${r.left + r.width / 2}px`)
     el.style.setProperty('--backup-tip-y', `${r.top}px`)
   }, [])
 
   return (
-    <span
-      ref={elRef}
+    <button
       aria-label={tip}
       className={settingsHelpIconClassName(multiline)}
       data-tip={tip}
-      tabIndex={0}
-      title={tip}
       onFocus={syncTooltipAnchor}
       onMouseEnter={syncTooltipAnchor}
+      ref={elRef}
+      title={tip}
+      type="button"
     >
       i
-    </span>
+    </button>
   )
 }
 
 interface BackupSettingsApiResponse {
-  id?: string
-  backupsToKeep?: number
-  skipMongoCollections?: string[]
-  includeMediaForCron?: boolean
-  backupBlobTokenMasked?: string
-  hasBackupBlobReadWriteToken?: boolean
   /** Persisted access level after the last successful token validation, or null. */
-  backupBlobAccess?: 'public' | 'private' | null
+  backupBlobAccess?: 'private' | 'public' | null
   /** Either the persisted access level or a heuristic derived value (never null). */
-  backupBlobAccessEffective?: 'public' | 'private'
+  backupBlobAccessEffective?: 'private' | 'public'
+  backupBlobTokenMasked?: string
+  backupsToKeep?: number
+  cron?: {
+    configFileRelative: string
+    humanDescription: null | string
+    path: string
+    schedule: string
+  } | null
   effectiveBackupsToKeep?: number
+  error?: string
+  hasBackupBlobReadWriteToken?: boolean
+  id?: string
+  includeMediaForCron?: boolean
   pluginBackupsToKeepOverride?: boolean
+  skipMongoCollections?: string[]
   transfer?: {
     deferred?: boolean
     failed: number
@@ -109,13 +120,6 @@ interface BackupSettingsApiResponse {
     total: number
     transferred: number
   }
-  cron?: {
-    schedule: string
-    path: string
-    humanDescription: string | null
-    configFileRelative: string
-  } | null
-  error?: string
 }
 
 export const BackupSettingsModal: FC = () => {
@@ -125,8 +129,8 @@ export const BackupSettingsModal: FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const isPreparingOpenRef = useRef(false)
   const [preview, setPreview] = useState<BackupSourcePreviewResponse | null>(null)
-  const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [phase, setPhase] = useState<'error' | 'idle' | 'loading' | 'ready'>('idle')
+  const [errorMessage, setErrorMessage] = useState<null | string>(null)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [backupAllCollections, setBackupAllCollections] = useState(false)
   const [includeMediaBlobs, setIncludeMediaBlobs] = useState(true)
@@ -142,17 +146,17 @@ export const BackupSettingsModal: FC = () => {
    * Default: off — the user must explicitly opt in to destructive behavior.
    */
   const [deleteBackupBlobsFromSource, setDeleteBackupBlobsFromSource] = useState(false)
-  const [hasExistingBackupBlobToken, setHasExistingBackupBlobToken] = useState(false)
-  const [storedBackupBlobAccess, setStoredBackupBlobAccess] = useState<'public' | 'private' | null>(
+  const [, setHasExistingBackupBlobToken] = useState(false)
+  const [storedBackupBlobAccess, setStoredBackupBlobAccess] = useState<'private' | 'public' | null>(
     null,
   )
   const [effectiveBackupBlobAccess, setEffectiveBackupBlobAccess] = useState<
-    'public' | 'private' | null
+    'private' | 'public' | null
   >(null)
   const [tokenCheck, setTokenCheck] = useState<{
-    access?: 'public' | 'private'
+    access?: 'private' | 'public'
     message?: string
-    status: 'idle' | 'checking' | 'valid' | 'invalid'
+    status: 'checking' | 'idle' | 'invalid' | 'valid'
   }>({ status: 'idle' })
   const [pluginOverridesRetention, setPluginOverridesRetention] = useState(false)
   const [cronInfo, setCronInfo] = useState<BackupSettingsApiResponse['cron'] | undefined>(undefined)
@@ -171,9 +175,9 @@ export const BackupSettingsModal: FC = () => {
     transferred: number
   } | null>(null)
   const [savePhase, setSavePhase] = useState<
-    'idle' | 'saving' | 'transferring' | 'saved' | 'error'
+    'error' | 'idle' | 'saved' | 'saving' | 'transferring'
   >('idle')
-  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<null | string>(null)
   const [isPreparingOpen, setIsPreparingOpen] = useState(false)
 
   const resetState = useCallback(() => {
@@ -204,7 +208,9 @@ export const BackupSettingsModal: FC = () => {
 
   useEffect(() => {
     const el = dialogRef.current
-    if (!el) return
+    if (!el) {
+      return
+    }
     const onClose = () => resetState()
     el.addEventListener('close', onClose)
     return () => el.removeEventListener('close', onClose)
@@ -216,9 +222,9 @@ export const BackupSettingsModal: FC = () => {
     const [settingsRes, previewRes] = await Promise.all([
       fetch(backupPluginPublicApiPaths.adminSettings, { method: 'GET' }),
       fetch(backupPluginPublicApiPaths.adminBackupPreview, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ locale }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       }),
     ])
 
@@ -227,14 +233,14 @@ export const BackupSettingsModal: FC = () => {
       throw new Error(settingsJson.error || 'Could not load settings')
     }
 
-    const previewJson = (await previewRes.json()) as BackupSourcePreviewResponse & {
+    const previewJson = (await previewRes.json()) as {
       error?: string
-    }
+    } & BackupSourcePreviewResponse
     if (!previewRes.ok) {
       throw new Error(previewJson.error || 'Could not load collections')
     }
 
-    return { settingsJson, previewJson }
+    return { previewJson, settingsJson }
   }, [])
 
   const applyLoadedSettingsPreview = useCallback(
@@ -272,7 +278,7 @@ export const BackupSettingsModal: FC = () => {
     setPreview(null)
     setCronInfo(undefined)
     try {
-      const { settingsJson, previewJson } = await fetchSettingsAndPreview()
+      const { previewJson, settingsJson } = await fetchSettingsAndPreview()
       applyLoadedSettingsPreview(settingsJson, previewJson)
     } catch (e) {
       setPhase('error')
@@ -281,14 +287,16 @@ export const BackupSettingsModal: FC = () => {
   }, [applyLoadedSettingsPreview, fetchSettingsAndPreview])
 
   const openDialog = useCallback(() => {
-    if (isPreparingOpenRef.current) return
+    if (isPreparingOpenRef.current) {
+      return
+    }
     isPreparingOpenRef.current = true
     setSavePhase('idle')
     setSaveError(null)
     setIsPreparingOpen(true)
     void (async () => {
       try {
-        const { settingsJson, previewJson } = await fetchSettingsAndPreview()
+        const { previewJson, settingsJson } = await fetchSettingsAndPreview()
         applyLoadedSettingsPreview(settingsJson, previewJson)
         dialogRef.current?.showModal()
       } catch (e) {
@@ -305,8 +313,12 @@ export const BackupSettingsModal: FC = () => {
   }, [applyLoadedSettingsPreview, fetchSettingsAndPreview])
 
   const skipCollections = useMemo(() => {
-    if (!preview) return []
-    if (backupAllCollections) return []
+    if (!preview) {
+      return []
+    }
+    if (backupAllCollections) {
+      return []
+    }
     return skipMongoNamesFromPreview(preview, selected)
   }, [backupAllCollections, preview, selected])
 
@@ -334,11 +346,15 @@ export const BackupSettingsModal: FC = () => {
     }
 
     const candidate = backupBlobReadWriteToken.trim()
-    if (!candidate) return
+    if (!candidate) {
+      return
+    }
 
     let cancelled = false
     const timer = window.setTimeout(async () => {
-      if (cancelled) return
+      if (cancelled) {
+        return
+      }
       setTokenCheck({ status: 'checking' })
       try {
         const response = await fetch(backupPluginPublicApiPaths.adminValidateBlobToken, {
@@ -346,20 +362,26 @@ export const BackupSettingsModal: FC = () => {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
         })
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         const data = (await response.json()) as {
-          access?: 'public' | 'private'
+          access?: 'private' | 'public'
           error?: string
           ok?: boolean
         }
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         if (response.ok && data.ok && (data.access === 'public' || data.access === 'private')) {
           setTokenCheck({ access: data.access, status: 'valid' })
         } else {
           setTokenCheck({ message: data.error || 'Token rejected', status: 'invalid' })
         }
       } catch (error) {
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         setTokenCheck({
           message: error instanceof Error ? error.message : 'Token validation failed',
           status: 'invalid',
@@ -417,7 +439,9 @@ export const BackupSettingsModal: FC = () => {
   })()
 
   const includeMediaForCron = useMemo(() => {
-    if (!hasMediaBlobOption) return false
+    if (!hasMediaBlobOption) {
+      return false
+    }
     return includeMediaBlobs
   }, [hasMediaBlobOption, includeMediaBlobs])
 
@@ -439,7 +463,9 @@ export const BackupSettingsModal: FC = () => {
   }, [preview])
 
   const save = useCallback(async () => {
-    if (!preview) return
+    if (!preview) {
+      return
+    }
     setSavePhase('saving')
     setSaveError(null)
     setTransferSummary(null)
@@ -447,16 +473,16 @@ export const BackupSettingsModal: FC = () => {
     setTransferLive(null)
     try {
       const response = await fetch(backupPluginPublicApiPaths.adminSettings, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          backupsToKeep,
           backupBlobReadWriteToken,
-          skipMongoCollections: skipCollections,
-          includeMediaForCron,
-          transferBackupBlobs,
+          backupsToKeep,
           deleteBackupBlobsFromSource: transferBackupBlobs && deleteBackupBlobsFromSource,
+          includeMediaForCron,
+          skipMongoCollections: skipCollections,
+          transferBackupBlobs,
         }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
       })
       const data = (await response.json()) as BackupSettingsApiResponse
       if (!response.ok) {
@@ -507,10 +533,13 @@ export const BackupSettingsModal: FC = () => {
   ])
 
   useEffect(() => {
-    if (!activeTransfer) return
+    if (!activeTransfer) {
+      return
+    }
 
     let cancelled = false
-    let intervalId: number | null = null
+    let intervalId: null | number = null
+    let successCloseTimer: null | number = null
 
     const stopPolling = () => {
       if (intervalId != null) {
@@ -524,7 +553,9 @@ export const BackupSettingsModal: FC = () => {
         cache: 'no-store',
         headers: { Authorization: `Bearer ${activeTransfer.pollSecret}` },
       })
-      if (!res.ok || cancelled) return
+      if (!res.ok || cancelled) {
+        return
+      }
       const task = (await res.json()) as BackupTaskProgress
       const parsed = parseBlobTransferTaskMessage(task.message)
       if (parsed) {
@@ -562,7 +593,8 @@ export const BackupSettingsModal: FC = () => {
           /* ignore */
         }
         router.refresh()
-        window.setTimeout(() => {
+        successCloseTimer = window.setTimeout(() => {
+          successCloseTimer = null
           setSavePhase('idle')
           setTransferSummary(null)
           dialogRef.current?.close()
@@ -583,6 +615,9 @@ export const BackupSettingsModal: FC = () => {
     return () => {
       cancelled = true
       stopPolling()
+      if (successCloseTimer != null) {
+        window.clearTimeout(successCloseTimer)
+      }
     }
   }, [activeTransfer, router])
 
@@ -590,20 +625,20 @@ export const BackupSettingsModal: FC = () => {
 
   return (
     <>
-      <Button buttonStyle="secondary" size="small" disabled={isPreparingOpen} onClick={openDialog}>
+      <Button buttonStyle="secondary" disabled={isPreparingOpen} onClick={openDialog} size="small">
         {isPreparingOpen ? 'Loading…' : 'Backup settings'}
       </Button>
 
+      {/* Native <dialog>: backdrop dismiss; element not in jsx-a11y interactive list */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <dialog
-        ref={dialogRef}
         className="backup-confirm-dialog backup-confirm-dialog--settings"
         onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dialogRef)}
+        ref={dialogRef}
       >
         <p className="backup-confirm-dialog__title">Scheduled backup settings</p>
         <p className="backup-confirm-dialog__subtitle backup-confirm-dialog__subtitle--with-help">
-          <span className="backup-confirm-dialog__subtitle-text">
-            Cron schedule, retention, storage token, and default collection scope.
-          </span>
+          <span className="backup-confirm-dialog__subtitle-text">{TIP_SETTINGS_SUBTITLE}</span>
         </p>
 
         <div className="backup-confirm-dialog__body restore-preview">
@@ -612,8 +647,8 @@ export const BackupSettingsModal: FC = () => {
               <p className="restore-preview__sticky-heading">Schedule</p>
               {phase === 'loading' ? (
                 <div
-                  className="restore-preview__loading-block restore-preview__loading-block--section"
                   aria-live="polite"
+                  className="restore-preview__loading-block restore-preview__loading-block--section"
                 >
                   <p className="restore-preview__status">Loading cron configuration…</p>
                   <div className="restore-preview__loading-line" />
@@ -627,7 +662,7 @@ export const BackupSettingsModal: FC = () => {
                     Active job: <code>{cronInfo.configFileRelative}</code> — edit and redeploy to
                     change the schedule.
                   </p>
-                  <div className="restore-preview__settings-block" aria-label="Configured schedule">
+                  <div aria-label="Configured schedule" className="restore-preview__settings-block">
                     <p className="restore-preview__settings-row">
                       <span className="restore-preview__settings-k">HTTP path</span>{' '}
                       <code>{cronInfo.path}</code>
@@ -686,14 +721,15 @@ export const BackupSettingsModal: FC = () => {
               Cron backups to keep
             </label>
             <input
-              id="backups-to-keep"
-              type="number"
-              min={1}
-              max={365}
+              aria-label="Cron backups to keep"
               className="restore-preview__settings-input"
-              value={backupsToKeep}
               disabled={retentionDisabled}
+              id="backups-to-keep"
+              max={365}
+              min={1}
               onChange={(e) => setBackupsToKeep(Number(e.target.value) || 1)}
+              type="number"
+              value={backupsToKeep}
             />
           </div>
 
@@ -711,6 +747,7 @@ export const BackupSettingsModal: FC = () => {
             </label>
             <div className="restore-preview__blob-token-row">
               <input
+                aria-label="Backup Blob read/write token"
                 autoComplete="off"
                 className="restore-preview__settings-input restore-preview__settings-input--wide"
                 id="backup-blob-token"
@@ -723,12 +760,12 @@ export const BackupSettingsModal: FC = () => {
               <span className="restore-preview__blob-token-pill-slot">{tokenStatusPill}</span>
             </div>
             {tokenCheck.status === 'invalid' && tokenCheck.message ? (
-              <p className="restore-preview__blob-token-error" aria-live="polite">
+              <p aria-live="polite" className="restore-preview__blob-token-error">
                 {tokenCheck.message}
               </p>
             ) : null}
             {savePhase === 'transferring' && transferLive && transferLive.total > 0 ? (
-              <div className="restore-preview__transfer-panel" aria-live="polite">
+              <div aria-live="polite" className="restore-preview__transfer-panel">
                 <div className="restore-preview__transfer-bar-track">
                   <div
                     className="restore-preview__transfer-bar-fill"
@@ -765,6 +802,7 @@ export const BackupSettingsModal: FC = () => {
               <>
                 <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
                   <input
+                    aria-label="Copy existing backup files into this storage when saving"
                     checked={transferBackupBlobs}
                     className="checkbox-input__input"
                     id={transferOptId}
@@ -779,6 +817,7 @@ export const BackupSettingsModal: FC = () => {
                 {transferBackupBlobs ? (
                   <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
                     <input
+                      aria-label="Delete from previous storage after successful copy"
                       checked={deleteBackupBlobsFromSource}
                       className="checkbox-input__input"
                       id={deleteSourceOptId}
@@ -797,17 +836,17 @@ export const BackupSettingsModal: FC = () => {
 
           <CollectionBackupPreviewBody
             embedded
-            phase={phase}
             errorMessage={errorMessage}
+            includeAllCollections={backupAllCollections}
+            includeAllLabel="Backup all collections"
+            includeMediaBlobs={includeMediaBlobs}
             onRetry={loadPreview}
+            onToggleGroup={onToggleGroup}
+            onToggleIncludeAllCollections={onToggleBackupAllCollections}
+            onToggleIncludeMedia={() => setIncludeMediaBlobs((v) => !v)}
+            phase={phase}
             preview={preview}
             selected={selected}
-            onToggleGroup={onToggleGroup}
-            includeMediaBlobs={includeMediaBlobs}
-            onToggleIncludeMedia={() => setIncludeMediaBlobs((v) => !v)}
-            includeAllCollections={backupAllCollections}
-            onToggleIncludeAllCollections={onToggleBackupAllCollections}
-            includeAllLabel="Backup all collections"
           />
 
           {saveError ? (
@@ -829,7 +868,6 @@ export const BackupSettingsModal: FC = () => {
         <div className="backup-confirm-dialog__actions">
           <Button
             buttonStyle="primary"
-            size="small"
             disabled={
               phase !== 'ready' ||
               savePhase === 'saving' ||
@@ -837,6 +875,7 @@ export const BackupSettingsModal: FC = () => {
               blockSaveForTokenCheck
             }
             onClick={() => void save()}
+            size="small"
           >
             {savePhase === 'transferring'
               ? 'Transferring…'
@@ -846,7 +885,7 @@ export const BackupSettingsModal: FC = () => {
                   ? 'Saved'
                   : 'Save settings'}
           </Button>
-          <Button buttonStyle="secondary" size="small" onClick={() => dialogRef.current?.close()}>
+          <Button buttonStyle="secondary" onClick={() => dialogRef.current?.close()} size="small">
             Cancel
           </Button>
         </div>

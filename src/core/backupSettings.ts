@@ -1,19 +1,19 @@
 import type { Payload } from 'payload'
 
-export const BACKUP_SETTINGS_SLUG = 'backup-settings' as const
+export const BACKUP_SETTINGS_SLUG = 'backup-settings'
 
 export interface ResolvedCronBackupSettings {
-  id: string
-  backupsToKeep: number
-  skipMongoCollections: string[]
-  includeMediaForCron: boolean
-  backupBlobReadWriteToken: string
   /**
    * Validated access level of the current backup blob store, populated via
    * `validateBackupBlobToken`. `null` when validation has never run (default token use is still
    * treated as `public`, dedicated token without validation falls back to heuristic private).
    */
-  backupBlobAccess: 'public' | 'private' | null
+  backupBlobAccess: 'private' | 'public' | null
+  backupBlobReadWriteToken: string
+  backupsToKeep: number
+  id: string
+  includeMediaForCron: boolean
+  skipMongoCollections: string[]
 }
 
 function defaultBackupsToKeep(): number {
@@ -22,7 +22,7 @@ function defaultBackupsToKeep(): number {
 }
 
 export function normalizeSkipMongoCollections(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return []
+  if (!Array.isArray(raw)) {return []}
   const out: string[] = []
   for (const entry of raw) {
     if (typeof entry === 'string' && entry.length > 0 && entry.length < 512) {
@@ -31,7 +31,7 @@ export function normalizeSkipMongoCollections(raw: unknown): string[] {
     }
     if (entry && typeof entry === 'object' && 'name' in entry) {
       const name = (entry as { name?: unknown }).name
-      if (typeof name === 'string' && name.length > 0 && name.length < 512) out.push(name)
+      if (typeof name === 'string' && name.length > 0 && name.length < 512) {out.push(name)}
     }
   }
   return out
@@ -46,19 +46,19 @@ export async function getResolvedCronBackupSettings(
 ): Promise<ResolvedCronBackupSettings> {
   const res = await payload.find({
     collection: BACKUP_SETTINGS_SLUG,
-    limit: 1,
     depth: 0,
+    limit: 1,
     overrideAccess: true,
   })
   const doc = res.docs[0] as unknown as Record<string, unknown> | undefined
   if (!doc) {
     return {
       id: '',
-      backupsToKeep: defaultBackupsToKeep(),
-      skipMongoCollections: [],
-      includeMediaForCron: true,
-      backupBlobReadWriteToken: '',
       backupBlobAccess: null,
+      backupBlobReadWriteToken: '',
+      backupsToKeep: defaultBackupsToKeep(),
+      includeMediaForCron: true,
+      skipMongoCollections: [],
     }
   }
   const rawKeep = doc.backupsToKeep
@@ -68,23 +68,23 @@ export async function getResolvedCronBackupSettings(
       : defaultBackupsToKeep()
 
   const rawAccess = typeof doc.backupBlobAccess === 'string' ? doc.backupBlobAccess : null
-  const backupBlobAccess: 'public' | 'private' | null =
+  const backupBlobAccess: 'private' | 'public' | null =
     rawAccess === 'public' || rawAccess === 'private' ? rawAccess : null
 
   return {
     id: String(doc.id),
-    backupsToKeep,
-    skipMongoCollections: normalizeSkipMongoCollections(doc.skipMongoCollections),
-    includeMediaForCron: doc.includeMediaForCron === true,
+    backupBlobAccess,
     backupBlobReadWriteToken:
       typeof doc.backupBlobReadWriteToken === 'string' ? doc.backupBlobReadWriteToken : '',
-    backupBlobAccess,
+    backupsToKeep,
+    includeMediaForCron: doc.includeMediaForCron === true,
+    skipMongoCollections: normalizeSkipMongoCollections(doc.skipMongoCollections),
   }
 }
 
 export function resolveBackupBlobToken(settings: ResolvedCronBackupSettings): string {
   const fromSettings = settings.backupBlobReadWriteToken.trim()
-  if (fromSettings.length > 0) return fromSettings
+  if (fromSettings.length > 0) {return fromSettings}
   return process.env.BLOB_READ_WRITE_TOKEN || ''
 }
 
@@ -95,7 +95,7 @@ export function resolveBackupBlobToken(settings: ResolvedCronBackupSettings): st
  */
 export function resolveBackupBlobAccess(
   settings: ResolvedCronBackupSettings,
-): 'public' | 'private' {
+): 'private' | 'public' {
   if (settings.backupBlobAccess === 'public' || settings.backupBlobAccess === 'private') {
     return settings.backupBlobAccess
   }
@@ -110,8 +110,8 @@ export function resolveBackupArchiveRead(
   settings: ResolvedCronBackupSettings,
   pathname: unknown,
 ): { pathname: string; token: string } | undefined {
-  if (typeof pathname !== 'string' || !pathname.startsWith('backups/')) return undefined
+  if (typeof pathname !== 'string' || !pathname.startsWith('backups/')) {return undefined}
   const token = resolveBackupBlobToken(settings).trim()
-  if (!token) return undefined
+  if (!token) {return undefined}
   return { pathname, token }
 }

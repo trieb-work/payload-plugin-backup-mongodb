@@ -3,27 +3,27 @@
 import { Button, Collapsible } from '@payloadcms/ui'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 
-import type { TransformBlobNameResult } from '../../utils/index.js'
-import { formatBytes, getBackupSortTimeMs, transformBlobName } from '../../utils/index.js'
-import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop.js'
+import type { TransformBlobNameResult } from '../../utils/index'
 
-import { BackupItemActions } from './BackupItemActions.client.js'
+import { closeNativeDialogOnBackdropPointer } from '../../utils/dialogBackdrop'
+import { formatBytes, getBackupSortTimeMs, transformBlobName } from '../../utils/index'
+import { BackupItemActions } from './BackupItemActions.client'
 
 export interface SerializableBackupBlob {
-  pathname: string
-  url: string
   downloadUrl: string
+  pathname: string
   size: number
   uploadedAt: string
+  url: string
 }
 
 export interface BackupListCollapsibleProps {
   blobs: SerializableBackupBlob[]
-  i18nLanguage: string
-  currentDbName: string
-  currentHostname: string
   countOtherDb: number
   countOtherHostname: number
+  currentDbName: string
+  currentHostname: string
+  i18nLanguage: string
 }
 
 interface BackupListFilterState {
@@ -31,9 +31,9 @@ interface BackupListFilterState {
   dateTo: string
   label: string
   media: 'all' | 'with' | 'without'
-  source: 'all' | 'manual' | 'cron'
   showOtherDb: boolean
   showOtherHostname: boolean
+  source: 'all' | 'cron' | 'manual'
 }
 
 const defaultFilterState: BackupListFilterState = {
@@ -41,22 +41,26 @@ const defaultFilterState: BackupListFilterState = {
   dateTo: '',
   label: '',
   media: 'all',
-  source: 'all',
   showOtherDb: true,
   showOtherHostname: false,
+  source: 'all',
 }
 
-function parseDateInputStartMs(isoDate: string): number | null {
+function parseDateInputStartMs(isoDate: string): null | number {
   const parts = isoDate.split('-').map(Number)
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return null
+  }
   const [y, m, d] = parts
   const t = new Date(y, m - 1, d, 0, 0, 0, 0).getTime()
   return Number.isFinite(t) ? t : null
 }
 
-function parseDateInputEndMs(isoDate: string): number | null {
+function parseDateInputEndMs(isoDate: string): null | number {
   const parts = isoDate.split('-').map(Number)
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return null
+  }
   const [y, m, d] = parts
   const t = new Date(y, m - 1, d, 23, 59, 59, 999).getTime()
   return Number.isFinite(t) ? t : null
@@ -69,20 +73,34 @@ function passesDateMediaSource(
 ): boolean {
   if (filters.dateFrom) {
     const from = parseDateInputStartMs(filters.dateFrom)
-    if (from != null && displayMs < from) return false
+    if (from != null && displayMs < from) {
+      return false
+    }
   }
   if (filters.dateTo) {
     const to = parseDateInputEndMs(filters.dateTo)
-    if (to != null && displayMs > to) return false
+    if (to != null && displayMs > to) {
+      return false
+    }
   }
-  if (filters.media === 'with' && parsed.fileType !== 'tar.gz') return false
-  if (filters.media === 'without' && parsed.fileType !== 'json') return false
-  if (filters.source === 'manual' && parsed.type !== 'manual') return false
-  if (filters.source === 'cron' && parsed.type !== 'cron') return false
+  if (filters.media === 'with' && parsed.fileType !== 'tar.gz') {
+    return false
+  }
+  if (filters.media === 'without' && parsed.fileType !== 'json') {
+    return false
+  }
+  if (filters.source === 'manual' && parsed.type !== 'manual') {
+    return false
+  }
+  if (filters.source === 'cron' && parsed.type !== 'cron') {
+    return false
+  }
   const labelQuery = filters.label.trim().toLowerCase()
   if (labelQuery) {
     const blobLabel = (parsed.label ?? '').toLowerCase()
-    if (!blobLabel.includes(labelQuery)) return false
+    if (!blobLabel.includes(labelQuery)) {
+      return false
+    }
   }
   return true
 }
@@ -101,11 +119,11 @@ function hasNonDefaultFilters(f: BackupListFilterState): boolean {
 
 export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
   blobs,
-  i18nLanguage,
-  currentDbName,
-  currentHostname,
   countOtherDb,
   countOtherHostname,
+  currentDbName,
+  currentHostname,
+  i18nLanguage,
 }) => {
   const uid = useId()
   const idDb = `${uid}-show-other-db`
@@ -116,9 +134,9 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
   const visibleRows = useMemo(() => {
     const rows: Array<{
       blob: SerializableBackupBlob
-      parsed: TransformBlobNameResult
-      displayMs: number
       displayAt: Date
+      displayMs: number
+      parsed: TransformBlobNameResult
     }> = []
 
     for (const blob of blobs) {
@@ -126,18 +144,24 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
       const { dbName, hostname } = parsed
       const isCurrentDb = currentDbName === dbName
       const isCurrentHostname = currentHostname === hostname
-      if (!(filters.showOtherDb || isCurrentDb)) continue
-      if (!(filters.showOtherHostname || isCurrentHostname)) continue
+      if (!(filters.showOtherDb || isCurrentDb)) {
+        continue
+      }
+      if (!(filters.showOtherHostname || isCurrentHostname)) {
+        continue
+      }
 
       const uploadedAt = new Date(blob.uploadedAt)
       const displayMs = getBackupSortTimeMs(parsed, uploadedAt)
-      if (!passesDateMediaSource(parsed, displayMs, filters)) continue
+      if (!passesDateMediaSource(parsed, displayMs, filters)) {
+        continue
+      }
 
       rows.push({
         blob,
-        parsed,
-        displayMs,
         displayAt: new Date(displayMs),
+        displayMs,
+        parsed,
       })
     }
 
@@ -186,13 +210,13 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
         ) : visibleRows.length === 0 ? (
           <p className="backup-dashboard__list-empty">No backups match the current filters</p>
         ) : (
-          visibleRows.map(({ blob, parsed, displayAt }) => {
-            const { type, dbName, hostname, fileType, collectionCount, label } = parsed
+          visibleRows.map(({ blob, displayAt, parsed }) => {
+            const { type, collectionCount, dbName, fileType, hostname, label } = parsed
             const isCurrentDb = currentDbName === dbName
             const isCurrentHostname = currentHostname === hostname
 
             return (
-              <div key={blob.pathname} className="backup-item">
+              <div className="backup-item" key={blob.pathname}>
                 <div className="backup-item__main">
                   <div className="backup-item__primary">
                     <time
@@ -267,8 +291,8 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
 
       <dialog
         className="backup-confirm-dialog backup-confirm-dialog--backup-list-filters"
-        ref={dialogRef}
         onPointerDown={(e) => closeNativeDialogOnBackdropPointer(e, dialogRef)}
+        ref={dialogRef}
       >
         <h3 className="backup-confirm-dialog__title">Filter backups</h3>
         <p className="backup-confirm-dialog__subtitle">
@@ -282,13 +306,14 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
               {countOtherDb > 0 ? (
                 <div className="field-type checkbox backup-dashboard__collapsible-checkbox backup-list-filters__scope-row">
                   <input
-                    id={idDb}
-                    type="checkbox"
-                    className="checkbox-input__input"
+                    aria-label={`Show other databases (${countOtherDb} in list)`}
                     checked={filters.showOtherDb}
+                    className="checkbox-input__input"
+                    id={idDb}
                     onChange={(e) => setFilters((f) => ({ ...f, showOtherDb: e.target.checked }))}
+                    type="checkbox"
                   />
-                  <label htmlFor={idDb} className="field-label">
+                  <label className="field-label" htmlFor={idDb}>
                     Show other DBs
                     <span className="backup-list-filters__hint"> ({countOtherDb} in list)</span>
                   </label>
@@ -297,15 +322,16 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
               {countOtherHostname > 0 ? (
                 <div className="field-type checkbox backup-dashboard__collapsible-checkbox backup-list-filters__scope-row">
                   <input
-                    id={idHost}
-                    type="checkbox"
-                    className="checkbox-input__input"
+                    aria-label={`Show other hostnames (${countOtherHostname} in list)`}
                     checked={filters.showOtherHostname}
+                    className="checkbox-input__input"
+                    id={idHost}
                     onChange={(e) =>
                       setFilters((f) => ({ ...f, showOtherHostname: e.target.checked }))
                     }
+                    type="checkbox"
                   />
-                  <label htmlFor={idHost} className="field-label">
+                  <label className="field-label" htmlFor={idHost}>
                     Show other Hostnames
                     <span className="backup-list-filters__hint">
                       {' '}
@@ -324,6 +350,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                 Search
               </label>
               <input
+                aria-label="Filter backups by label text"
                 autoComplete="off"
                 className="backup-list-filters__text"
                 id={`${uid}-label`}
@@ -343,11 +370,12 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                 From
               </label>
               <input
+                aria-label="Filter from date"
                 className="backup-list-filters__date"
                 id={`${uid}-from`}
+                onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
                 type="date"
                 value={filters.dateFrom}
-                onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
               />
             </div>
             <div className="backup-list-filters__row">
@@ -355,11 +383,12 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                 To
               </label>
               <input
+                aria-label="Filter to date"
                 className="backup-list-filters__date"
                 id={`${uid}-to`}
+                onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
                 type="date"
                 value={filters.dateTo}
-                onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
               />
             </div>
           </fieldset>
@@ -368,6 +397,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
             <legend className="backup-list-filters__legend">Media</legend>
             <div className="field-type radio backup-list-filters__radio-row">
               <input
+                aria-label="Media filter: all backups"
                 checked={filters.media === 'all'}
                 className="radio-input__input"
                 id={`${uid}-media-all`}
@@ -381,6 +411,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
             </div>
             <div className="field-type radio backup-list-filters__radio-row">
               <input
+                aria-label="Media filter: with media"
                 checked={filters.media === 'with'}
                 className="radio-input__input"
                 id={`${uid}-media-with`}
@@ -394,6 +425,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
             </div>
             <div className="field-type radio backup-list-filters__radio-row">
               <input
+                aria-label="Media filter: without media"
                 checked={filters.media === 'without'}
                 className="radio-input__input"
                 id={`${uid}-media-without`}
@@ -411,6 +443,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
             <legend className="backup-list-filters__legend">Source</legend>
             <div className="field-type radio backup-list-filters__radio-row">
               <input
+                aria-label="Source filter: all"
                 checked={filters.source === 'all'}
                 className="radio-input__input"
                 id={`${uid}-source-all`}
@@ -424,6 +457,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
             </div>
             <div className="field-type radio backup-list-filters__radio-row">
               <input
+                aria-label="Source filter: manual backups"
                 checked={filters.source === 'manual'}
                 className="radio-input__input"
                 id={`${uid}-source-manual`}
@@ -437,6 +471,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
             </div>
             <div className="field-type radio backup-list-filters__radio-row">
               <input
+                aria-label="Source filter: cron backups"
                 checked={filters.source === 'cron'}
                 className="radio-input__input"
                 id={`${uid}-source-cron`}

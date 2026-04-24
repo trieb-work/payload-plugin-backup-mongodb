@@ -1,3 +1,4 @@
+import type { Payload } from 'payload'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createBackup, listBackups, createMediaBackupFile } from '../../src/core/backup.js'
 import type { MongoDb } from '../../src/core/db.js'
@@ -237,15 +238,23 @@ describe('createMediaBackupFile', () => {
 
   it('skips missing media files with a warning', async () => {
     vi.mocked(list).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false })
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warn = vi.fn()
+    const mockPayload = {
+      logger: { warn, debug: vi.fn(), error: vi.fn(), info: vi.fn() },
+    } as unknown as Payload
 
-    const result = await createMediaBackupFile('{}', [{ filename: 'missing.png' }])
+    const result = await createMediaBackupFile(
+      '{}',
+      [{ filename: 'missing.png' }],
+      undefined,
+      undefined,
+      mockPayload,
+    )
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('not in blob storage'),
-      'missing.png',
+    expect(warn).toHaveBeenCalledWith(
+      { filename: 'missing.png' },
+      expect.stringMatching(/not in blob storage/i),
     )
     expect(result).toBeInstanceOf(Buffer)
-    consoleSpy.mockRestore()
   })
 })
