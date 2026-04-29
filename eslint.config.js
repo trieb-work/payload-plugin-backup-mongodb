@@ -1,6 +1,9 @@
 // @ts-check
 
 import payloadEsLintConfig from '@payloadcms/eslint-config'
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 // Only TypeScript/TSX is hand-written in this repo. JS/MJS/CJS files are either
 // generated (Next build output, payload importMap), config, or helper scripts
@@ -70,4 +73,4 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-]
+];

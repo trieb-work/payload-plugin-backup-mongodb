@@ -45,7 +45,6 @@ dev/**/*.d.cts
 tests/**/*.d.ts
 src/**/*.d.ts
 
-.env
 
 /dev/media
 
@@ -54,3 +53,4 @@ src/**/*.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+config.bat
