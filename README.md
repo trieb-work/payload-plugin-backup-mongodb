@@ -1,4 +1,4 @@
-> Experimental. Originated in the [Payblocks](https://www.shadcnblocks.com/payload-cms) template, now maintained as a standalone package. Feedback and PRs welcome.
+> Experimental. Originated in the [Payblocks](https://www.shadcnblocks.com/payload-cms) template, now maintained as a standalone package. Running in production at 20+ projects from TRWK agency. Feedback and PRs welcome.
 
 # @trieb.work/payload-plugin-backup-mongodb
 
@@ -10,7 +10,7 @@ A **Payload CMS v3** plugin for **MongoDB only** — not Postgres, SQLite, or ot
 
 A first-class **Backups** section lives right below the Payload dashboard: browse every archive
 sorted by creation time, see at a glance which host and database it belongs to, whether media is
-bundled and how big it is, then download, restore or delete any backup with one click.
+bundled and how big it is, then download, restore or delete any backup with one click. Read more on how it originated at [TRWK> Case Study](https://trwk.de/case-studies/payload-plugin-mongodb-backup-restore).
 
 ---
 
