@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+### Patch Changes
+
+- a3db273: Update docs and NPM description
+
 ## 0.1.3
 
 ### Patch Changes
