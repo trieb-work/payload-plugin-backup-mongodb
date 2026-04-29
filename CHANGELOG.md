@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+### Patch Changes
+
+- cbde705: Update keywords for better NPM visibility
+
 ## 0.1.4
 
 ### Patch Changes
