@@ -69,10 +69,16 @@ describe('cron backup endpoints', () => {
       } as never)
       expect(res.status).toBe(503)
     } finally {
-      if (prevBlob !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prevBlob}
-      else {delete process.env.BLOB_READ_WRITE_TOKEN}
-      if (prevCron !== undefined) {process.env.CRON_SECRET = prevCron}
-      else {delete process.env.CRON_SECRET}
+      if (prevBlob !== undefined) {
+        process.env.BLOB_READ_WRITE_TOKEN = prevBlob
+      } else {
+        delete process.env.BLOB_READ_WRITE_TOKEN
+      }
+      if (prevCron !== undefined) {
+        process.env.CRON_SECRET = prevCron
+      } else {
+        delete process.env.CRON_SECRET
+      }
     }
   })
 
@@ -89,10 +95,16 @@ describe('cron backup endpoints', () => {
       } as never)
       expect(res.status).toBe(401)
     } finally {
-      if (prevBlob !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prevBlob}
-      else {delete process.env.BLOB_READ_WRITE_TOKEN}
-      if (prevCron !== undefined) {process.env.CRON_SECRET = prevCron}
-      else {delete process.env.CRON_SECRET}
+      if (prevBlob !== undefined) {
+        process.env.BLOB_READ_WRITE_TOKEN = prevBlob
+      } else {
+        delete process.env.BLOB_READ_WRITE_TOKEN
+      }
+      if (prevCron !== undefined) {
+        process.env.CRON_SECRET = prevCron
+      } else {
+        delete process.env.CRON_SECRET
+      }
     }
   })
 
@@ -122,10 +134,16 @@ describe('cron backup endpoints', () => {
         skipCollections: [],
       })
     } finally {
-      if (prevBlob !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prevBlob}
-      else {delete process.env.BLOB_READ_WRITE_TOKEN}
-      if (prevCron !== undefined) {process.env.CRON_SECRET = prevCron}
-      else {delete process.env.CRON_SECRET}
+      if (prevBlob !== undefined) {
+        process.env.BLOB_READ_WRITE_TOKEN = prevBlob
+      } else {
+        delete process.env.BLOB_READ_WRITE_TOKEN
+      }
+      if (prevCron !== undefined) {
+        process.env.CRON_SECRET = prevCron
+      } else {
+        delete process.env.CRON_SECRET
+      }
     }
   })
 })

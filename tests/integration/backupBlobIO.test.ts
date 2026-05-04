@@ -30,9 +30,7 @@ afterEach(() => {
 describe('vercelBlobPathnameFromUrl', () => {
   it('returns pathname for vercel blob https URLs', () => {
     expect(
-      vercelBlobPathnameFromUrl(
-        'https://abc123.public.blob.vercel-storage.com/backups/x.json',
-      ),
+      vercelBlobPathnameFromUrl('https://abc123.public.blob.vercel-storage.com/backups/x.json'),
     ).toBe('backups/x.json')
   })
 
@@ -62,8 +60,7 @@ describe('isTrustedBackupBlobReference', () => {
 
 describe('streamBackupBlobForDownload', () => {
   it('streams via the trusted download URL with Bearer auth for private stores', async () => {
-    const downloadUrl =
-      'https://sid.private.blob.vercel-storage.com/backups/f.json?download=1'
+    const downloadUrl = 'https://sid.private.blob.vercel-storage.com/backups/f.json?download=1'
     fetchMock.mockResolvedValueOnce({
       body: new ReadableStream(),
       headers: new Headers({ 'content-type': 'application/json' }),
@@ -147,8 +144,7 @@ describe('readBackupBlobContent', () => {
 
 describe('readBackupBlobContentFlexible', () => {
   it('uses the authenticated download URL for private stores', async () => {
-    const downloadUrl =
-      'https://sid.private.blob.vercel-storage.com/backups/f.json?download=1'
+    const downloadUrl = 'https://sid.private.blob.vercel-storage.com/backups/f.json?download=1'
     fetchMock.mockResolvedValueOnce({
       arrayBuffer: async () => new TextEncoder().encode('payload').buffer,
       ok: true,
@@ -222,18 +218,18 @@ describe('putBackupBlobContent', () => {
 
   it('re-throws non-access errors without retrying', async () => {
     putMock.mockRejectedValueOnce(new Error('Network unreachable'))
-    await expect(
-      putBackupBlobContent('backups/x.json', 'body', 't', 'private'),
-    ).rejects.toThrow('Network unreachable')
+    await expect(putBackupBlobContent('backups/x.json', 'body', 't', 'private')).rejects.toThrow(
+      'Network unreachable',
+    )
     expect(putMock).toHaveBeenCalledTimes(1)
   })
 
   it('throws the first error when both attempts fail', async () => {
     putMock.mockRejectedValueOnce(new Error('Invalid access: private rejected'))
     putMock.mockRejectedValueOnce(new Error('Invalid access: public rejected'))
-    await expect(
-      putBackupBlobContent('backups/x.json', 'body', 't', 'public'),
-    ).rejects.toThrow(/Invalid access: private rejected/)
+    await expect(putBackupBlobContent('backups/x.json', 'body', 't', 'public')).rejects.toThrow(
+      /Invalid access: private rejected/,
+    )
     expect(putMock).toHaveBeenCalledTimes(2)
   })
 })

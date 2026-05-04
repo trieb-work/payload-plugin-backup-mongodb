@@ -32,8 +32,9 @@ export function createAdminManualEndpoint(options: BackupPluginOptions): Endpoin
 
       const body = (await readRequestJson(req)) as Record<string, unknown>
       const clientSkipRaw = body?.skipCollections
-      const clientSkip = Array.isArray(clientSkipRaw)
-        ? clientSkipRaw.filter(
+      const clientSkip =
+        Array.isArray(clientSkipRaw) ?
+          clientSkipRaw.filter(
             (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length < 512,
           )
         : []

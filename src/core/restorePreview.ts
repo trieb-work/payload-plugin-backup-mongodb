@@ -154,8 +154,9 @@ export async function loadRestoreBackupIndex(
   mediaBlobCount: number
 }> {
   const urlBase = downloadUrl.split('?')?.[0]
-  const bytes = readAuth
-    ? await readBackupBlobContentFlexible(readAuth.pathname, downloadUrl, readAuth.token)
+  const bytes =
+    readAuth ?
+      await readBackupBlobContentFlexible(readAuth.pathname, downloadUrl, readAuth.token)
     : await (async () => {
         const res = await fetch(downloadUrl)
         if (!res.ok) {
@@ -235,9 +236,8 @@ export function buildCollectionPreviewGroups(
     sortLikeAdminNav?: boolean
   } = {},
 ): RestorePreviewGroup[] {
-  const preferredLocales = options.preferredLocales?.length
-    ? options.preferredLocales
-    : ['de', 'en']
+  const preferredLocales =
+    options.preferredLocales?.length ? options.preferredLocales : ['de', 'en']
   const excludeMongo = options.excludeMongo ?? new Set(['backup-tasks'])
   const includeEmptyCollections = options.includeEmptyCollections ?? false
   const sortLikeAdminNav = options.sortLikeAdminNav ?? false

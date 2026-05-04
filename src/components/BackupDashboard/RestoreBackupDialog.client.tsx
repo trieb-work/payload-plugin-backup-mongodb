@@ -263,7 +263,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                 <p className="restore-preview__empty">No collections found to list.</p>
               )}
 
-              {restoreAllCollections ? (
+              {restoreAllCollections ?
                 <div className="restore-preview__all-block">
                   <label className="restore-preview__all-block-head">
                     <input
@@ -285,7 +285,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                     />
                     <span className="restore-preview__media-label">Restore all collections</span>
                   </label>
-                  {preview.groups.length > 0 ? (
+                  {preview.groups.length > 0 ?
                     <ul aria-label="Collections in backup" className="restore-preview__all-list">
                       {preview.groups.map((g) => {
                         const isMedia = g.groupId === 'media'
@@ -310,22 +310,22 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                           <li className="restore-preview__all-item" key={g.groupId}>
                             <span className="restore-preview__all-name">
                               {g.displayTitle}
-                              {signInAgain ? (
+                              {signInAgain ?
                                 <>
                                   {' '}
                                   <span className="restore-preview__pill restore-preview__pill--signin">
                                     Sign-in again
                                   </span>
                                 </>
-                              ) : null}
+                              : null}
                             </span>
                             <span className="restore-preview__all-count">{countLabel}</span>
                           </li>
                         )
                       })}
                     </ul>
-                  ) : null}
-                  {hasMediaBlobOption ? (
+                  : null}
+                  {hasMediaBlobOption ?
                     <label className="restore-preview__media-block restore-preview__media-block--nested">
                       <input
                         aria-label={`Restore media files from backup (${preview.mediaBlobCount} files in archive)`}
@@ -339,10 +339,9 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                         {preview.mediaBlobCount === 1 ? '' : 's'} in archive)
                       </span>
                     </label>
-                  ) : null}
+                  : null}
                 </div>
-              ) : (
-                <>
+              : <>
                   <label className="restore-preview__media-block">
                     <input
                       aria-label="Restore all collections"
@@ -401,30 +400,29 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                             )}
                           </div>
                           <div className="restore-preview__sublines">
-                            {rowEmpty ? (
+                            {rowEmpty ?
                               <div className="restore-preview__subline restore-preview__subline--empty">
                                 0 docs, nothing to restore
                               </div>
-                            ) : docTotal === 0 && isMedia && preview.mediaBlobCount > 0 ? (
+                            : docTotal === 0 && isMedia && preview.mediaBlobCount > 0 ?
                               <div className="restore-preview__subline">
                                 0 collection docs in backup
                               </div>
-                            ) : (
-                              <>
-                                {g.main ? (
+                            : <>
+                                {g.main ?
                                   <div className="restore-preview__subline">
                                     {g.main.docCount} doc{g.main.docCount === 1 ? '' : 's'} to
                                     restore
                                   </div>
-                                ) : null}
-                                {g.versions ? (
+                                : null}
+                                {g.versions ?
                                   <div className="restore-preview__subline">
                                     {g.versions.docCount} version doc
                                     {g.versions.docCount === 1 ? '' : 's'} to restore
                                   </div>
-                                ) : null}
+                                : null}
                               </>
-                            )}
+                            }
                             {isMedia &&
                               selected['media'] !== false &&
                               preview.mediaBlobCount === 0 &&
@@ -464,7 +462,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
                     })}
                   </ul>
                 </>
-              )}
+              }
             </>
           )}
         </div>

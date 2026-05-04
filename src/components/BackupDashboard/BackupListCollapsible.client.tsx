@@ -187,9 +187,9 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
     <Button
       buttonStyle="secondary"
       className={
-        filtersActive
-          ? 'backup-dashboard__filter-btn backup-dashboard__filter-btn--active'
-          : 'backup-dashboard__filter-btn'
+        filtersActive ?
+          'backup-dashboard__filter-btn backup-dashboard__filter-btn--active'
+        : 'backup-dashboard__filter-btn'
       }
       onClick={openFilterDialog}
       type="button"
@@ -205,12 +205,11 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
         initCollapsed={true}
       >
         <div className="backup-dashboard__backup-list-toolbar">{filtersButton}</div>
-        {blobs.length === 0 ? (
+        {blobs.length === 0 ?
           <p className="backup-dashboard__list-empty">No backups yet</p>
-        ) : visibleRows.length === 0 ? (
+        : visibleRows.length === 0 ?
           <p className="backup-dashboard__list-empty">No backups match the current filters</p>
-        ) : (
-          visibleRows.map(({ blob, displayAt, parsed }) => {
+        : visibleRows.map(({ blob, displayAt, parsed }) => {
             const { type, collectionCount, dbName, fileType, hostname, label } = parsed
             const isCurrentDb = currentDbName === dbName
             const isCurrentHostname = currentHostname === hostname
@@ -231,7 +230,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                     >
                       {type === 'cron' ? 'Cron backup' : 'Manual backup'}
                     </span>
-                    {label ? (
+                    {label ?
                       <span
                         className="backup-item__pill backup-item__pill--label"
                         title={`Label: ${label}`}
@@ -239,7 +238,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                         <span className="backup-item__pill-key">Label</span>
                         {label}
                       </span>
-                    ) : null}
+                    : null}
                   </div>
                   <div className="backup-item__meta">
                     <span
@@ -256,19 +255,19 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                       <span className="backup-item__pill-key">Host</span>
                       {hostname || 'Unknown'}
                     </span>
-                    {typeof collectionCount === 'number' ? (
+                    {typeof collectionCount === 'number' ?
                       <span className="backup-item__pill backup-item__pill--collections">
                         <span className="backup-item__pill-key">Collections</span>
                         {collectionCount}
                       </span>
-                    ) : null}
-                    {fileType === 'tar.gz' ? (
+                    : null}
+                    {fileType === 'tar.gz' ?
                       <span className="backup-item__pill backup-item__pill--media">With media</span>
-                    ) : fileType === 'json' ? (
+                    : fileType === 'json' ?
                       <span className="backup-item__pill backup-item__pill--media">
                         Without media
                       </span>
-                    ) : null}
+                    : null}
                     <span
                       className="backup-item__pill backup-item__pill--size"
                       title={`${blob.size.toLocaleString(i18nLanguage)} bytes`}
@@ -286,7 +285,7 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
               </div>
             )
           })
-        )}
+        }
       </Collapsible>
 
       <dialog
@@ -300,10 +299,10 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
           the options below to include backups from other databases or hosts.
         </p>
         <div className="backup-confirm-dialog__body backup-list-filters__body">
-          {hasScopeOptions ? (
+          {hasScopeOptions ?
             <fieldset className="backup-list-filters__fieldset">
               <legend className="backup-list-filters__legend">Scope</legend>
-              {countOtherDb > 0 ? (
+              {countOtherDb > 0 ?
                 <div className="field-type checkbox backup-dashboard__collapsible-checkbox backup-list-filters__scope-row">
                   <input
                     aria-label={`Show other databases (${countOtherDb} in list)`}
@@ -318,8 +317,8 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                     <span className="backup-list-filters__hint"> ({countOtherDb} in list)</span>
                   </label>
                 </div>
-              ) : null}
-              {countOtherHostname > 0 ? (
+              : null}
+              {countOtherHostname > 0 ?
                 <div className="field-type checkbox backup-dashboard__collapsible-checkbox backup-list-filters__scope-row">
                   <input
                     aria-label={`Show other hostnames (${countOtherHostname} in list)`}
@@ -339,9 +338,9 @@ export const BackupListCollapsible: React.FC<BackupListCollapsibleProps> = ({
                     </span>
                   </label>
                 </div>
-              ) : null}
+              : null}
             </fieldset>
-          ) : null}
+          : null}
 
           <fieldset className="backup-list-filters__fieldset">
             <legend className="backup-list-filters__legend">Label</legend>

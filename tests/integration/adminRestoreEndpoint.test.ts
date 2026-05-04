@@ -71,9 +71,7 @@ describe('POST /backup-mongodb/admin/restore', () => {
 
   it('rejects missing url with 400', async () => {
     const ep = createAdminRestoreEndpoint({})
-    const res = await ep.handler(
-      makeMockRequest(makeMockPayload(), { body: {}, user: adminUser }),
-    )
+    const res = await ep.handler(makeMockRequest(makeMockPayload(), { body: {}, user: adminUser }))
     expect(res.status).toBe(400)
   })
 

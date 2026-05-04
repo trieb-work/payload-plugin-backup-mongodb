@@ -15,7 +15,9 @@ export const BACKUP_ALLOWED_ROLES_ENV = 'PAYLOAD_BACKUP_ALLOWED_ROLES'
 
 /** Parses the env var value into a normalized list of role slugs (lower-cased, trimmed). */
 export function parseAllowedRolesEnv(raw: string | undefined): string[] {
-  if (!raw) {return []}
+  if (!raw) {
+    return []
+  }
   return raw
     .split(',')
     .map((s) => s.trim().toLowerCase())
@@ -24,7 +26,9 @@ export function parseAllowedRolesEnv(raw: string | undefined): string[] {
 
 function extractRoleSlugs(user: Record<string, unknown>): null | string[] {
   const roles = user.roles as Array<{ slug?: unknown } | string> | undefined
-  if (!Array.isArray(roles)) {return null}
+  if (!Array.isArray(roles)) {
+    return null
+  }
   const slugs: string[] = []
   for (const entry of roles) {
     if (typeof entry === 'string') {
@@ -47,20 +51,28 @@ export function isUserAllowedByEnvRoles(
   user: null | Record<string, unknown>,
   envValue: string | undefined = process.env[BACKUP_ALLOWED_ROLES_ENV],
 ): boolean {
-  if (!user) {return false}
+  if (!user) {
+    return false
+  }
   const allowed = parseAllowedRolesEnv(envValue)
   const userRoles = extractRoleSlugs(user)
 
   // Env var not set -> backwards-compatible default.
   if (allowed.length === 0) {
-    if (userRoles === null || userRoles.length === 0) {return true}
+    if (userRoles === null || userRoles.length === 0) {
+      return true
+    }
     return userRoles.includes('admin')
   }
 
   // Wildcard -> any authenticated user.
-  if (allowed.includes('*')) {return true}
+  if (allowed.includes('*')) {
+    return true
+  }
 
   // Explicit allow-list requires the user to actually expose roles that match.
-  if (!userRoles || userRoles.length === 0) {return false}
+  if (!userRoles || userRoles.length === 0) {
+    return false
+  }
   return userRoles.some((slug) => allowed.includes(slug))
 }

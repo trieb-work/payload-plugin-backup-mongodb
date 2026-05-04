@@ -101,7 +101,9 @@ describe('listBackups', () => {
 
     expect(blobs).toEqual([])
     expect(list).not.toHaveBeenCalled()
-    if (prev !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prev}
+    if (prev !== undefined) {
+      process.env.BLOB_READ_WRITE_TOKEN = prev
+    }
   })
 })
 

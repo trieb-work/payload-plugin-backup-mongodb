@@ -54,3 +54,7 @@ src/**/*.d.ts
 /blob-report/
 /playwright/.cache/
 config.bat
+
+# Prettier / ESLint caches
+.prettiercache
+.eslintcache

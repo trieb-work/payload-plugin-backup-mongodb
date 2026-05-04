@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildCollectionPreviewGroups, buildRestorePreviewGroups } from '../../src/core/restorePreview.js'
+import {
+  buildCollectionPreviewGroups,
+  buildRestorePreviewGroups,
+} from '../../src/core/restorePreview.js'
 
 const mockPayload = {
   config: {
@@ -32,7 +35,9 @@ const mockPayload = {
 describe('buildCollectionPreviewGroups', () => {
   it('groups counts like restore preview', () => {
     const counts = { _pages_versions: 30, pages: 2, posts: 1 }
-    const groups = buildCollectionPreviewGroups(mockPayload, counts, { preferredLocales: ['de', 'en'] })
+    const groups = buildCollectionPreviewGroups(mockPayload, counts, {
+      preferredLocales: ['de', 'en'],
+    })
     const pages = groups.find((g) => g.groupId === 'pages')
     expect(pages?.main?.docCount).toBe(2)
     expect(pages?.versions?.docCount).toBe(30)
@@ -93,7 +98,9 @@ describe('buildRestorePreviewGroups', () => {
       mediaBlobCount: 0,
     }
 
-    const preview = buildRestorePreviewGroups(mockPayload, parsed, { preferredLocales: ['de', 'en'] })
+    const preview = buildRestorePreviewGroups(mockPayload, parsed, {
+      preferredLocales: ['de', 'en'],
+    })
 
     expect(preview.groups.some((g) => g.groupId === 'backup-tasks')).toBe(false)
     expect(preview.groups.map((g) => g.groupId)).toEqual(['pages', 'media', 'posts'])

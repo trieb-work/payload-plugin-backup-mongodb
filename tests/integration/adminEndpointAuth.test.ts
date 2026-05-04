@@ -66,11 +66,7 @@ const ADMIN_PATHS = [
   '/backup-mongodb/admin/validate-blob-token',
 ] as const
 
-function getEndpoint(
-  endpoints: Endpoint[],
-  path: string,
-  method?: Endpoint['method'],
-): Endpoint {
+function getEndpoint(endpoints: Endpoint[], path: string, method?: Endpoint['method']): Endpoint {
   const match = endpoints.find((e) =>
     method ? e.path === path && e.method === method : e.path === path,
   )

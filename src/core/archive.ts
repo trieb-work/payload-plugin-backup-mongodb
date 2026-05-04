@@ -22,9 +22,7 @@ export function createTarGzip(files: { content: Buffer; name: string }[]): Promi
   })
 }
 
-export function resolveTarGzip(
-  fileBuffer: Buffer,
-): Promise<{ content: Buffer; name: string }[]> {
+export function resolveTarGzip(fileBuffer: Buffer): Promise<{ content: Buffer; name: string }[]> {
   return new Promise<{ content: Buffer; name: string }[]>((resolve, reject) => {
     const gunzip = zlib.createGunzip()
     const extract = tar.extract()

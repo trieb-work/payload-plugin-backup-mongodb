@@ -72,10 +72,9 @@ export const backupMongodbPlugin = (options: BackupPluginOptions = {}): Plugin =
             }
             const db = mongooseDb.connection?.db
             if (db) {
-              await db.collection('backup-tasks').createIndex(
-                { updatedAt: 1 },
-                { background: true, expireAfterSeconds: 1800 },
-              )
+              await db
+                .collection('backup-tasks')
+                .createIndex({ updatedAt: 1 }, { background: true, expireAfterSeconds: 1800 })
             }
           }
         } catch {

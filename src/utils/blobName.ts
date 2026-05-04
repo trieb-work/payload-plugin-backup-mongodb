@@ -30,9 +30,13 @@ function isPlausibleNewFormatTail(collectionCount: number, timestampMs: number):
  * Returns an empty string when nothing usable remains.
  */
 export function sanitizeBackupLabel(raw: unknown): string {
-  if (typeof raw !== 'string') {return ''}
+  if (typeof raw !== 'string') {
+    return ''
+  }
   const collapsed = raw.replace(/\s+/g, ' ').trim()
-  if (!collapsed) {return ''}
+  if (!collapsed) {
+    return ''
+  }
   // The blob-name separator is three hyphens; collapse any hyphen run in the
   // label to a single hyphen so round-trip parsing stays unambiguous.
   const deHyphen = collapsed.replace(/-{2,}/g, '-')
@@ -50,11 +54,10 @@ export interface TransformBlobNameResult {
 }
 
 export function transformBlobName(blobName: string): TransformBlobNameResult {
-  const fileType: 'json' | 'na' | 'tar.gz' = blobName.endsWith('json')
-    ? 'json'
-    : blobName.endsWith('tar.gz')
-      ? 'tar.gz'
-      : 'na'
+  const fileType: 'json' | 'na' | 'tar.gz' =
+    blobName.endsWith('json') ? 'json'
+    : blobName.endsWith('tar.gz') ? 'tar.gz'
+    : 'na'
   const [type = '', dbName = '', hostname = '', last = '', labelEncoded = ''] = blobName
     .replace(/\.(?:json|tar\.gz)$/, '')
     .replace(/^backups\//, '')
@@ -64,7 +67,9 @@ export function transformBlobName(blobName: string): TransformBlobNameResult {
   if (labelEncoded) {
     try {
       const decoded = decodeURIComponent(labelEncoded)
-      if (decoded) {label = decoded}
+      if (decoded) {
+        label = decoded
+      }
     } catch {
       label = labelEncoded
     }

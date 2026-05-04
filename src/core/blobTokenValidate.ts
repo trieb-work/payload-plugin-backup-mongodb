@@ -14,19 +14,16 @@ const PROBE_PATH_PREFIX = 'backups/.backup-mongodb-probe-'
 
 function looksLikeAccessModeRejection(error: unknown): boolean {
   const msg =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : error == null
-          ? ''
-          : (() => {
-              try {
-                return JSON.stringify(error)
-              } catch {
-                return 'unknown'
-              }
-            })()
+    error instanceof Error ? error.message
+    : typeof error === 'string' ? error
+    : error == null ? ''
+    : (() => {
+        try {
+          return JSON.stringify(error)
+        } catch {
+          return 'unknown'
+        }
+      })()
   const lower = msg.toLowerCase()
   if (!lower.includes('access')) {
     return false
@@ -86,9 +83,9 @@ export async function validateBackupBlobToken(token: string): Promise<BackupBlob
 
   return {
     error:
-      firstError instanceof Error
-        ? firstError.message
-        : 'Token rejected for both public and private access',
+      firstError instanceof Error ?
+        firstError.message
+      : 'Token rejected for both public and private access',
     ok: false,
   }
 }
