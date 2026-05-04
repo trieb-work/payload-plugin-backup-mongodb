@@ -30,9 +30,9 @@ jobs:
           --health-retries 10
 
     env:
-      CI: 'true'
+      CI: "true"
       NODE_ENV: test
-      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_TELEMETRY_DISABLED: "1"
       PAYLOAD_CONFIG_PATH: ./dev/payload.config.ts
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
@@ -53,8 +53,11 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies (no install scripts)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        run: pnpm rebuild
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium

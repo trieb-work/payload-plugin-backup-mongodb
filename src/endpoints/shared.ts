@@ -38,12 +38,13 @@ export async function getAuthorizedBackupAdmin(
   options: BackupPluginOptions,
 ): Promise<null | Record<string, unknown>> {
   const fromRequest = (req as { user?: null | Record<string, unknown> } & PayloadRequest).user
-  const authUser = fromRequest
-    ? fromRequest
-    : ((await req.payload.auth({ headers: req.headers }))?.user as
+  const authUser =
+    fromRequest ? fromRequest : (
+      ((await req.payload.auth({ headers: req.headers }))?.user as
         | null
         | Record<string, unknown>
         | undefined)
+    )
   const user = authUser
   if (!user) {
     return null

@@ -52,8 +52,9 @@ export async function restoreBackup(
 
   // Progress is stored in `backup-tasks`. Restoring that collection from the file
   // would delete/replace the active task doc and break GET .../admin/task/:id polling.
-  const effectiveBlacklist = taskId
-    ? Array.from(new Set(['backup-tasks', ...collectionBlacklist]))
+  const effectiveBlacklist =
+    taskId ?
+      Array.from(new Set(['backup-tasks', ...collectionBlacklist]))
     : [...collectionBlacklist]
 
   payload.logger.info(
@@ -68,8 +69,9 @@ export async function restoreBackup(
   }
 
   const db = getDb(payload)
-  const archiveBytes = backupRead
-    ? await readBackupBlobContentFlexible(backupRead.pathname, downloadUrl, backupRead.token)
+  const archiveBytes =
+    backupRead ?
+      await readBackupBlobContentFlexible(backupRead.pathname, downloadUrl, backupRead.token)
     : await (async () => {
         const res = await fetch(downloadUrl)
         if (!res.ok) {
@@ -98,9 +100,8 @@ export async function restoreBackup(
     collections = EJSON.parse(
       files.find((file) => file.name === COLLECTION_FILE_NAME)?.content?.toString() || '{}',
     )
-    const medias = restoreArchiveMedia
-      ? files.filter((file) => file.name !== COLLECTION_FILE_NAME)
-      : []
+    const medias =
+      restoreArchiveMedia ? files.filter((file) => file.name !== COLLECTION_FILE_NAME) : []
     if (!restoreArchiveMedia) {
       payload.logger.info(
         '[restore] Skipping archive media blob upload (restoreArchiveMedia=false)',
@@ -109,8 +110,9 @@ export async function restoreBackup(
     payload.logger.info({ count: medias.length }, '[restore] Restoring media files to blob storage')
     if (taskId) {
       await updateBackupTask(payload, taskId, {
-        message: restoreArchiveMedia
-          ? `Restoring ${medias.length} media file${medias.length === 1 ? '' : 's'}`
+        message:
+          restoreArchiveMedia ?
+            `Restoring ${medias.length} media file${medias.length === 1 ? '' : 's'}`
           : 'Skipped media files from archive',
       })
     }
@@ -180,14 +182,14 @@ export async function restoreBackup(
         collectionData.map((doc) => ({
           updateOne: {
             filter:
-              uniqueIndexes.length > 0
-                ? {
-                    $or: [
-                      { _id: doc._id },
-                      ...uniqueIndexes.map((field) => ({ [field]: doc[field] })),
-                    ],
-                  }
-                : { _id: doc._id },
+              uniqueIndexes.length > 0 ?
+                {
+                  $or: [
+                    { _id: doc._id },
+                    ...uniqueIndexes.map((field) => ({ [field]: doc[field] })),
+                  ],
+                }
+              : { _id: doc._id },
             update: { $set: doc },
             upsert: true,
           },

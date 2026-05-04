@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import type { BackupSourcePreviewResponse } from '../../src/core/backupSourcePreview.js'
 
-import { selectedFromSkipMongoNames, skipMongoNamesFromPreview } from '../../src/utils/backupSelection.js'
+import {
+  selectedFromSkipMongoNames,
+  skipMongoNamesFromPreview,
+} from '../../src/utils/backupSelection.js'
 
-function mockPreview(
-  groups: BackupSourcePreviewResponse['groups'],
-): BackupSourcePreviewResponse {
+function mockPreview(groups: BackupSourcePreviewResponse['groups']): BackupSourcePreviewResponse {
   return {
     groups,
     mediaBlobCandidates: 0,

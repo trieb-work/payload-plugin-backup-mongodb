@@ -260,9 +260,8 @@ export const BackupSettingsModal: FC = () => {
       setCronInfo(settingsJson.cron ?? null)
       setIncludeMediaBlobs(settingsJson.includeMediaForCron === true)
 
-      const skip = Array.isArray(settingsJson.skipMongoCollections)
-        ? settingsJson.skipMongoCollections
-        : []
+      const skip =
+        Array.isArray(settingsJson.skipMongoCollections) ? settingsJson.skipMongoCollections : []
       setSelected(selectedFromSkipMongoNames(previewJson, skip))
       setBackupAllCollections(skip.length === 0)
       setTransferBackupBlobs(true)
@@ -426,9 +425,9 @@ export const BackupSettingsModal: FC = () => {
             effectiveBackupBlobAccess === 'private' ? 'cron' : 'manual'
           }`}
           title={
-            storedBackupBlobAccess
-              ? 'Detected and persisted after last validation'
-              : 'Heuristic fallback — will be re-validated when saving a new token'
+            storedBackupBlobAccess ?
+              'Detected and persisted after last validation'
+            : 'Heuristic fallback — will be re-validated when saving a new token'
           }
         >
           {effectiveBackupBlobAccess === 'private' ? 'Private' : 'Public'}
@@ -642,10 +641,10 @@ export const BackupSettingsModal: FC = () => {
         </p>
 
         <div className="backup-confirm-dialog__body restore-preview">
-          {phase !== 'idle' ? (
+          {phase !== 'idle' ?
             <>
               <p className="restore-preview__sticky-heading">Schedule</p>
-              {phase === 'loading' ? (
+              {phase === 'loading' ?
                 <div
                   aria-live="polite"
                   className="restore-preview__loading-block restore-preview__loading-block--section"
@@ -654,9 +653,9 @@ export const BackupSettingsModal: FC = () => {
                   <div className="restore-preview__loading-line" />
                   <div className="restore-preview__loading-line restore-preview__loading-line--short" />
                 </div>
-              ) : phase === 'error' ? (
+              : phase === 'error' ?
                 <p className="restore-preview__intro">Schedule details could not be loaded.</p>
-              ) : cronInfo ? (
+              : cronInfo ?
                 <>
                   <p className="restore-preview__intro">
                     Active job: <code>{cronInfo.configFileRelative}</code> — edit and redeploy to
@@ -671,17 +670,15 @@ export const BackupSettingsModal: FC = () => {
                       <span className="restore-preview__settings-k">Cron expression</span>{' '}
                       <code>{cronInfo.schedule}</code>
                     </p>
-                    {cronInfo.humanDescription ? (
+                    {cronInfo.humanDescription ?
                       <p className="restore-preview__settings-human">{cronInfo.humanDescription}</p>
-                    ) : (
-                      <p className="restore-preview__settings-human restore-preview__settings-human--muted">
+                    : <p className="restore-preview__settings-human restore-preview__settings-human--muted">
                         Could not turn the cron expression into a short description.
                       </p>
-                    )}
+                    }
                   </div>
                 </>
-              ) : (
-                <>
+              : <>
                   <p className="restore-preview__intro">
                     No vercel <code>crons</code> entry for the backup path yet. You can either setup
                     an external service to call /api/backup-mongodb/cron/run with your cron secret
@@ -702,19 +699,17 @@ export const BackupSettingsModal: FC = () => {
                     and redeploy on Vercel so the cron job is registered.
                   </p>
                 </>
-              )}
+              }
             </>
-          ) : null}
+          : null}
 
           <p className="restore-preview__sticky-heading">Retention</p>
           <p className="restore-preview__intro">
-            {retentionDisabled ? (
+            {retentionDisabled ?
               <>
                 Locked by <code>backupMongodbPlugin({'{ backupsToKeep }'})</code> in Payload config.
               </>
-            ) : (
-              <>Oldest cron archives are deleted once the count exceeds this limit.</>
-            )}
+            : <>Oldest cron archives are deleted once the count exceeds this limit.</>}
           </p>
           <div className="restore-preview__settings-fields">
             <label className="restore-preview__settings-label" htmlFor="backups-to-keep">
@@ -759,12 +754,12 @@ export const BackupSettingsModal: FC = () => {
               />
               <span className="restore-preview__blob-token-pill-slot">{tokenStatusPill}</span>
             </div>
-            {tokenCheck.status === 'invalid' && tokenCheck.message ? (
+            {tokenCheck.status === 'invalid' && tokenCheck.message ?
               <p aria-live="polite" className="restore-preview__blob-token-error">
                 {tokenCheck.message}
               </p>
-            ) : null}
-            {savePhase === 'transferring' && transferLive && transferLive.total > 0 ? (
+            : null}
+            {savePhase === 'transferring' && transferLive && transferLive.total > 0 ?
               <div aria-live="polite" className="restore-preview__transfer-panel">
                 <div className="restore-preview__transfer-bar-track">
                   <div
@@ -782,23 +777,23 @@ export const BackupSettingsModal: FC = () => {
                   Copying backup files: {transferLive.transferred + transferLive.failed} /{' '}
                   {transferLive.total}
                   {transferLive.failed > 0 ? ` (${transferLive.failed} failed)` : ''}
-                  {transferLive.pathname ? (
+                  {transferLive.pathname ?
                     <>
                       <br />
                       <span
                         className="restore-preview__transfer-path"
                         title={transferLive.pathname}
                       >
-                        {transferLive.pathname.length > 56
-                          ? `${transferLive.pathname.slice(0, 28)}…${transferLive.pathname.slice(-24)}`
-                          : transferLive.pathname}
+                        {transferLive.pathname.length > 56 ?
+                          `${transferLive.pathname.slice(0, 28)}…${transferLive.pathname.slice(-24)}`
+                        : transferLive.pathname}
                       </span>
                     </>
-                  ) : null}
+                  : null}
                 </p>
               </div>
-            ) : null}
-            {willSaveNewRawToken ? (
+            : null}
+            {willSaveNewRawToken ?
               <>
                 <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
                   <input
@@ -814,7 +809,7 @@ export const BackupSettingsModal: FC = () => {
                   </label>
                   <SettingsHelpTip multiline tip={TIP_TRANSFER_COPY} />
                 </div>
-                {transferBackupBlobs ? (
+                {transferBackupBlobs ?
                   <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
                     <input
                       aria-label="Delete from previous storage after successful copy"
@@ -829,9 +824,9 @@ export const BackupSettingsModal: FC = () => {
                     </label>
                     <SettingsHelpTip multiline tip={TIP_TRANSFER_DELETE} />
                   </div>
-                ) : null}
+                : null}
               </>
-            ) : null}
+            : null}
           </div>
 
           <CollectionBackupPreviewBody
@@ -849,20 +844,20 @@ export const BackupSettingsModal: FC = () => {
             selected={selected}
           />
 
-          {saveError ? (
+          {saveError ?
             <p className="restore-preview__error restore-preview__error--inline">{saveError}</p>
-          ) : null}
-          {savePhase === 'saving' ? (
+          : null}
+          {savePhase === 'saving' ?
             <p className="restore-preview__status restore-preview__status--footer">
               Saving settings…
             </p>
-          ) : null}
-          {transferSummary?.performed ? (
+          : null}
+          {transferSummary?.performed ?
             <p className="restore-preview__status restore-preview__status--footer">
               Migrated backups: {transferSummary.transferred}/{transferSummary.total}
               {transferSummary.failed > 0 ? `, failed: ${transferSummary.failed}` : ''}
             </p>
-          ) : null}
+          : null}
         </div>
 
         <div className="backup-confirm-dialog__actions">
@@ -877,13 +872,13 @@ export const BackupSettingsModal: FC = () => {
             onClick={() => void save()}
             size="small"
           >
-            {savePhase === 'transferring'
-              ? 'Transferring…'
-              : savePhase === 'saving'
-                ? 'Saving…'
-                : savePhase === 'saved'
-                  ? 'Saved'
-                  : 'Save settings'}
+            {savePhase === 'transferring' ?
+              'Transferring…'
+            : savePhase === 'saving' ?
+              'Saving…'
+            : savePhase === 'saved' ?
+              'Saved'
+            : 'Save settings'}
           </Button>
           <Button buttonStyle="secondary" onClick={() => dialogRef.current?.close()} size="small">
             Cancel

@@ -12,10 +12,16 @@ export type BackupBlobAccessLevel = 'private' | 'public'
 export function vercelBlobPathnameFromUrl(urlStr: string): null | string {
   try {
     const u = new URL(urlStr)
-    if (u.protocol !== 'https:') {return null}
-    if (!u.hostname.endsWith('.blob.vercel-storage.com')) {return null}
+    if (u.protocol !== 'https:') {
+      return null
+    }
+    if (!u.hostname.endsWith('.blob.vercel-storage.com')) {
+      return null
+    }
     const raw = u.pathname.replace(/^\//, '')
-    if (raw.length === 0) {return null}
+    if (raw.length === 0) {
+      return null
+    }
     try {
       return decodeURIComponent(raw)
     } catch {
@@ -48,9 +54,7 @@ function isVercelBlobHost(urlStr: string): boolean {
  */
 async function fetchBackupBlobUrl(url: string, token: string): Promise<Response> {
   const init: RequestInit | undefined =
-    token && isVercelBlobHost(url)
-      ? { headers: { authorization: `Bearer ${token}` } }
-      : undefined
+    token && isVercelBlobHost(url) ? { headers: { authorization: `Bearer ${token}` } } : undefined
   return fetch(url, init)
 }
 
@@ -105,8 +109,12 @@ export async function bufferFromWebReadableStream(
   const chunks: Buffer[] = []
   while (true) {
     const { done, value } = await reader.read()
-    if (done) {break}
-    if (value) {chunks.push(Buffer.from(value))}
+    if (done) {
+      break
+    }
+    if (value) {
+      chunks.push(Buffer.from(value))
+    }
   }
   return Buffer.concat(chunks)
 }
@@ -145,7 +153,9 @@ export async function readBackupBlobContentFlexible(
 ): Promise<Buffer> {
   try {
     const res = await fetchBackupBlobUrl(downloadUrl, token)
-    if (res.ok) {return Buffer.from(await res.arrayBuffer())}
+    if (res.ok) {
+      return Buffer.from(await res.arrayBuffer())
+    }
   } catch {
     /* try anonymous fallback */
   }
@@ -153,7 +163,9 @@ export async function readBackupBlobContentFlexible(
   if (!isVercelBlobHost(downloadUrl)) {
     try {
       const res = await fetch(downloadUrl)
-      if (res.ok) {return Buffer.from(await res.arrayBuffer())}
+      if (res.ok) {
+        return Buffer.from(await res.arrayBuffer())
+      }
     } catch {
       /* fall through to error */
     }
@@ -187,8 +199,12 @@ export async function putBackupBlobContent(
       })
       return attempt
     } catch (error) {
-      if (firstError === undefined) {firstError = error}
-      if (!looksLikeAccessModeMismatch(error)) {throw error}
+      if (firstError === undefined) {
+        firstError = error
+      }
+      if (!looksLikeAccessModeMismatch(error)) {
+        throw error
+      }
     }
   }
   throw firstError instanceof Error ? firstError : new Error('Failed to upload backup blob')
@@ -197,19 +213,16 @@ export async function putBackupBlobContent(
 /** Heuristic for Vercel Blob errors that indicate the store rejects the chosen access level. */
 function looksLikeAccessModeMismatch(error: unknown): boolean {
   const msg =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : error == null
-          ? ''
-          : (() => {
-              try {
-                return JSON.stringify(error)
-              } catch {
-                return 'unknown'
-              }
-            })()
+    error instanceof Error ? error.message
+    : typeof error === 'string' ? error
+    : error == null ? ''
+    : (() => {
+        try {
+          return JSON.stringify(error)
+        } catch {
+          return 'unknown'
+        }
+      })()
   const lower = msg.toLowerCase()
   return (
     lower.includes('access') &&

@@ -207,10 +207,10 @@ export async function createBackup(
       )
       continue
     }
-    allData[collection.name] = (await db
-      .collection(collection.name)
-      .find({})
-      .toArray()) as Record<string, unknown>[]
+    allData[collection.name] = (await db.collection(collection.name).find({}).toArray()) as Record<
+      string,
+      unknown
+    >[]
     payload.logger.debug(
       { collection: collection.name, docs: allData[collection.name].length },
       '[backup] Collection dumped',
@@ -235,8 +235,9 @@ export async function createBackup(
     }
   }
 
-  const backupFile = includeMedia
-    ? await createMediaBackupFile(
+  const backupFile =
+    includeMedia ?
+      await createMediaBackupFile(
         collectionBackupFile,
         (allData?.['media'] as { filename: string }[] | undefined) || [],
         token,

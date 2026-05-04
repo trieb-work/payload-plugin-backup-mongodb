@@ -22,7 +22,9 @@ function defaultBackupsToKeep(): number {
 }
 
 export function normalizeSkipMongoCollections(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {return []}
+  if (!Array.isArray(raw)) {
+    return []
+  }
   const out: string[] = []
   for (const entry of raw) {
     if (typeof entry === 'string' && entry.length > 0 && entry.length < 512) {
@@ -31,7 +33,9 @@ export function normalizeSkipMongoCollections(raw: unknown): string[] {
     }
     if (entry && typeof entry === 'object' && 'name' in entry) {
       const name = (entry as { name?: unknown }).name
-      if (typeof name === 'string' && name.length > 0 && name.length < 512) {out.push(name)}
+      if (typeof name === 'string' && name.length > 0 && name.length < 512) {
+        out.push(name)
+      }
     }
   }
   return out
@@ -63,9 +67,9 @@ export async function getResolvedCronBackupSettings(
   }
   const rawKeep = doc.backupsToKeep
   const backupsToKeep =
-    typeof rawKeep === 'number' && Number.isFinite(rawKeep)
-      ? Math.min(365, Math.max(1, Math.floor(rawKeep)))
-      : defaultBackupsToKeep()
+    typeof rawKeep === 'number' && Number.isFinite(rawKeep) ?
+      Math.min(365, Math.max(1, Math.floor(rawKeep)))
+    : defaultBackupsToKeep()
 
   const rawAccess = typeof doc.backupBlobAccess === 'string' ? doc.backupBlobAccess : null
   const backupBlobAccess: 'private' | 'public' | null =
@@ -84,7 +88,9 @@ export async function getResolvedCronBackupSettings(
 
 export function resolveBackupBlobToken(settings: ResolvedCronBackupSettings): string {
   const fromSettings = settings.backupBlobReadWriteToken.trim()
-  if (fromSettings.length > 0) {return fromSettings}
+  if (fromSettings.length > 0) {
+    return fromSettings
+  }
   return process.env.BLOB_READ_WRITE_TOKEN || ''
 }
 
@@ -110,8 +116,12 @@ export function resolveBackupArchiveRead(
   settings: ResolvedCronBackupSettings,
   pathname: unknown,
 ): { pathname: string; token: string } | undefined {
-  if (typeof pathname !== 'string' || !pathname.startsWith('backups/')) {return undefined}
+  if (typeof pathname !== 'string' || !pathname.startsWith('backups/')) {
+    return undefined
+  }
   const token = resolveBackupBlobToken(settings).trim()
-  if (!token) {return undefined}
+  if (!token) {
+    return undefined
+  }
   return { pathname, token }
 }

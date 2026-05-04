@@ -64,9 +64,7 @@ describe('POST /backup-mongodb/admin/manual', () => {
     delete process.env.BLOB_READ_WRITE_TOKEN
 
     const ep = createAdminManualEndpoint({})
-    const res = await ep.handler(
-      makeMockRequest(makeMockPayload(), { body: {}, user: adminUser }),
-    )
+    const res = await ep.handler(makeMockRequest(makeMockPayload(), { body: {}, user: adminUser }))
     expect(res.status).toBe(503)
   })
 

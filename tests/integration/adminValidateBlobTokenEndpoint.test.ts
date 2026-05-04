@@ -59,9 +59,7 @@ describe('POST /backup-mongodb/admin/validate-blob-token', () => {
   it('passes an empty string to the validator when token is missing in the body', async () => {
     const ep = createAdminValidateBlobTokenEndpoint({})
     vi.mocked(validateBackupBlobToken).mockResolvedValueOnce({ error: 'Token is empty', ok: false })
-    const res = await ep.handler(
-      makeMockRequest(makeMockPayload(), { body: {}, user: adminUser }),
-    )
+    const res = await ep.handler(makeMockRequest(makeMockPayload(), { body: {}, user: adminUser }))
     expect(validateBackupBlobToken).toHaveBeenCalledWith('')
     expect(res.status).toBe(422)
   })

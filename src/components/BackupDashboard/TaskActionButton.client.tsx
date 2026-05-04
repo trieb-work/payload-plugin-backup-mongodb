@@ -146,9 +146,9 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
     intervalRef.current = setInterval(async () => {
       const response = await fetch(backupPluginPublicApiPaths.adminTask(task.id), {
         cache: 'no-store',
-        ...(pollSecretRef.current
-          ? { headers: { Authorization: `Bearer ${pollSecretRef.current}` } }
-          : {}),
+        ...(pollSecretRef.current ?
+          { headers: { Authorization: `Bearer ${pollSecretRef.current}` } }
+        : {}),
       })
 
       if (!response.ok) {
@@ -245,7 +245,7 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
         )}
       </div>
 
-      {dangerConfirm ? (
+      {dangerConfirm ?
         <>
           {/* Native <dialog>: backdrop dismiss; element not in jsx-a11y interactive list */}
           {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
@@ -254,23 +254,23 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
             onMouseDown={(e) => closeNativeDialogOnBackdropPointer(e, dangerDialogRef)}
             ref={dangerDialogRef}
           >
-          <p className="backup-confirm-dialog__title">{dangerConfirm.title}</p>
-          <p className="backup-confirm-dialog__body">{dangerConfirm.body}</p>
-          <div className="backup-confirm-dialog__actions">
-            <Button buttonStyle="error" onClick={() => void handleDangerConfirm()} size="small">
-              {dangerConfirm.confirmLabel ?? 'I understand — continue'}
-            </Button>
-            <Button
-              buttonStyle="secondary"
-              onClick={() => dangerDialogRef.current?.close()}
-              size="small"
-            >
-              {dangerConfirm.cancelLabel ?? 'Go back'}
-            </Button>
-          </div>
-        </dialog>
+            <p className="backup-confirm-dialog__title">{dangerConfirm.title}</p>
+            <p className="backup-confirm-dialog__body">{dangerConfirm.body}</p>
+            <div className="backup-confirm-dialog__actions">
+              <Button buttonStyle="error" onClick={() => void handleDangerConfirm()} size="small">
+                {dangerConfirm.confirmLabel ?? 'I understand — continue'}
+              </Button>
+              <Button
+                buttonStyle="secondary"
+                onClick={() => dangerDialogRef.current?.close()}
+                size="small"
+              >
+                {dangerConfirm.cancelLabel ?? 'Go back'}
+              </Button>
+            </div>
+          </dialog>
         </>
-      ) : null}
+      : null}
     </>
   )
 }

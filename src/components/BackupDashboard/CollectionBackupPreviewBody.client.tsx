@@ -84,7 +84,7 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
             <p className="restore-preview__empty">No collections found to list.</p>
           )}
 
-          {includeAllCollections ? (
+          {includeAllCollections ?
             <div className="restore-preview__all-block">
               <label className="restore-preview__all-block-head">
                 <input
@@ -96,7 +96,7 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                 />
                 <span className="restore-preview__media-label">{includeAllLabel}</span>
               </label>
-              {preview.groups.length > 0 ? (
+              {preview.groups.length > 0 ?
                 <ul aria-label="Collections to back up" className="restore-preview__all-list">
                   {preview.groups.map((g) => {
                     const mainDocs = g.main?.docCount ?? 0
@@ -107,21 +107,21 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                         <span className="restore-preview__all-name">{g.displayTitle}</span>
                         <span className="restore-preview__all-count">
                           {totalDocs} doc{totalDocs === 1 ? '' : 's'}
-                          {versionDocs > 0 ? (
+                          {versionDocs > 0 ?
                             <>
                               {' '}
                               <span className="restore-preview__all-count-sub">
                                 (incl. {versionDocs} version{versionDocs === 1 ? '' : 's'})
                               </span>
                             </>
-                          ) : null}
+                          : null}
                         </span>
                       </li>
                     )
                   })}
                 </ul>
-              ) : null}
-              {hasMediaBlobOption ? (
+              : null}
+              {hasMediaBlobOption ?
                 <label className="restore-preview__media-block restore-preview__media-block--nested">
                   <input
                     aria-label={`Include media files from storage (${preview.mediaBlobCandidates} files)`}
@@ -135,10 +135,9 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                     {preview.mediaBlobCandidates === 1 ? '' : 's'})
                   </span>
                 </label>
-              ) : null}
+              : null}
             </div>
-          ) : (
-            <>
+          : <>
               <label className="restore-preview__media-block">
                 <input
                   aria-label={includeAllLabel}
@@ -169,17 +168,17 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                         </label>
                       </div>
                       <div className="restore-preview__sublines">
-                        {g.main ? (
+                        {g.main ?
                           <div className="restore-preview__subline">
                             {g.main.docCount} doc{g.main.docCount === 1 ? '' : 's'} to include
                           </div>
-                        ) : null}
-                        {g.versions ? (
+                        : null}
+                        {g.versions ?
                           <div className="restore-preview__subline">
                             {g.versions.docCount} version doc
                             {g.versions.docCount === 1 ? '' : 's'} to include
                           </div>
-                        ) : null}
+                        : null}
                         {isMedia &&
                           selected['media'] !== false &&
                           preview.mediaBlobCandidates === 0 &&
@@ -219,7 +218,7 @@ export const CollectionBackupPreviewBody: FC<CollectionBackupPreviewBodyProps> =
                 })}
               </ul>
             </>
-          )}
+          }
         </>
       )}
     </>

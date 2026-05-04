@@ -15,7 +15,9 @@ export function closeNativeDialogOnBackdropPointer(
   dialogRef: RefObject<HTMLDialogElement | null>,
 ): void {
   const el = dialogRef.current
-  if (!el) {return}
+  if (!el) {
+    return
+  }
   const r = el.getBoundingClientRect()
   const { clientX: x, clientY: y } = event
   if (x < r.left || x > r.right || y < r.top || y > r.bottom) {

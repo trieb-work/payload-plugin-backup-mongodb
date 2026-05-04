@@ -67,8 +67,9 @@ function buildSettingsJson(
     backupBlobAccessEffective: resolveBackupBlobAccess(stored),
     backupBlobTokenMasked: maskBlobReadWriteToken(stored.backupBlobReadWriteToken),
     backupsToKeep: stored.backupsToKeep,
-    cron: vercelCron
-      ? {
+    cron:
+      vercelCron ?
+        {
           configFileRelative: vercelCron.configFileRelative,
           humanDescription,
           path: vercelCron.path,
@@ -122,9 +123,9 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
         const transferBackupBlobs =
           typeof body?.transferBackupBlobs === 'boolean' ? body.transferBackupBlobs : false
         const deleteBackupBlobsFromSource =
-          typeof body?.deleteBackupBlobsFromSource === 'boolean'
-            ? body.deleteBackupBlobsFromSource
-            : false
+          typeof body?.deleteBackupBlobsFromSource === 'boolean' ?
+            body.deleteBackupBlobsFromSource
+          : false
         const requestedRaw =
           typeof body?.backupBlobReadWriteToken === 'string' ? body.backupBlobReadWriteToken : ''
         const requestedTrimmed = requestedRaw.trim()
@@ -197,9 +198,9 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
         // Read blobs from the *previous* store when rotating tokens; otherwise first-time setup
         // reads from BLOB_READ_WRITE_TOKEN (default Vercel store).
         const sourceTokenForTransfer =
-          previousBackupBlobToken.length > 0
-            ? previousBackupBlobToken
-            : (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
+          previousBackupBlobToken.length > 0 ?
+            previousBackupBlobToken
+          : (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
 
         const shouldTransferToNewBlobToken =
           newBlobToken.length > 0 &&

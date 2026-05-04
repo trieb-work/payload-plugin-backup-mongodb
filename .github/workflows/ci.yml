@@ -32,8 +32,16 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies (no install scripts)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        # Only runs install scripts for packages in pnpm.onlyBuiltDependencies
+        # (sharp, @swc/core, esbuild, mongodb-memory-server, unrs-resolver).
+        run: pnpm rebuild
+
+      - name: Format check (Prettier)
+        run: pnpm run format:check
 
       - name: Lint
         run: pnpm run lint

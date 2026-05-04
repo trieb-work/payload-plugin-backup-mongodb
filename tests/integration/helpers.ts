@@ -40,9 +40,7 @@ export function makeMockLogger() {
   }
 }
 
-export function makeMockPayload(
-  overrides: Partial<MinimalPayloadLike> = {},
-): MinimalPayloadLike {
+export function makeMockPayload(overrides: Partial<MinimalPayloadLike> = {}): MinimalPayloadLike {
   return {
     auth: vi.fn(async () => ({ user: null })),
     count: vi.fn(async () => ({ totalDocs: 0 })),

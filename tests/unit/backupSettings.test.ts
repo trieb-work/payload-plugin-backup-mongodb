@@ -146,7 +146,9 @@ describe('resolveBackupArchiveRead', () => {
     const prev = process.env.BLOB_READ_WRITE_TOKEN
     delete process.env.BLOB_READ_WRITE_TOKEN
     expect(resolveBackupArchiveRead(baseSettings, 'backups/x.json')).toBeUndefined()
-    if (prev !== undefined) {process.env.BLOB_READ_WRITE_TOKEN = prev}
+    if (prev !== undefined) {
+      process.env.BLOB_READ_WRITE_TOKEN = prev
+    }
   })
 
   it('returns { pathname, token } for valid backup paths with a token', () => {

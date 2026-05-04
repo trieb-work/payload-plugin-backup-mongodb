@@ -1,9 +1,6 @@
 // @ts-check
 
 import payloadEsLintConfig from '@payloadcms/eslint-config'
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
 
 // Only TypeScript/TSX is hand-written in this repo. JS/MJS/CJS files are either
 // generated (Next build output, payload importMap), config, or helper scripts
@@ -21,6 +18,7 @@ export const defaultESLintIgnores = [
   '**/tsconfig.tsbuildinfo',
   '**/README.md',
   '**/payload-types.ts',
+  'src/components/BackupDashboard/backupDashboardInlineCss.ts',
   '**/dist/',
   '**/.next/**',
   '**/.yarn/',
@@ -54,7 +52,7 @@ export default [
         ecmaVersion: 'latest',
         projectService: {
           maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 40,
-          allowDefaultProject: ['*.spec.ts', '*.d.ts'],
+          allowDefaultProject: ['*.spec.ts', '*.d.ts', 'playwright.config.ts'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -73,4 +71,4 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-];
+]

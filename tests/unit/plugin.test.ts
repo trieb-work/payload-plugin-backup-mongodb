@@ -17,10 +17,7 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
  * Payload types `Plugin` as `(config) => Config | Promise<Config>`. `backupMongodbPlugin`
  * always returns synchronously, so narrow it here to keep the test assertions tidy.
  */
-function applyPlugin(
-  options: Parameters<typeof backupMongodbPlugin>[0],
-  config: Config,
-): Config {
+function applyPlugin(options: Parameters<typeof backupMongodbPlugin>[0], config: Config): Config {
   const result = backupMongodbPlugin(options)(config)
   if (result instanceof Promise) {
     throw new Error('backupMongodbPlugin unexpectedly returned a Promise')

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { maskBlobReadWriteToken, shouldPreserveBackupBlobTokenField } from '../../src/utils/maskBlobToken.js'
+import {
+  maskBlobReadWriteToken,
+  shouldPreserveBackupBlobTokenField,
+} from '../../src/utils/maskBlobToken.js'
 
 describe('maskBlobReadWriteToken', () => {
   it('returns empty for blank', () => {
@@ -29,9 +32,9 @@ describe('shouldPreserveBackupBlobTokenField', () => {
   })
 
   it('preserves when client value looks like a masked placeholder', () => {
-    expect(
-      shouldPreserveBackupBlobTokenField(`vercel_blob_rw_3k6${'*'.repeat(23)}2UH`, true),
-    ).toBe(true)
+    expect(shouldPreserveBackupBlobTokenField(`vercel_blob_rw_3k6${'*'.repeat(23)}2UH`, true)).toBe(
+      true,
+    )
     expect(shouldPreserveBackupBlobTokenField('vercel_blob_rw_3k6*****....***2UH', true)).toBe(true)
     expect(shouldPreserveBackupBlobTokenField('abc**def', true)).toBe(true)
   })

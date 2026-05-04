@@ -35,9 +35,7 @@ async function mockSettingsResponse(page: Page): Promise<void> {
 }
 
 test.describe('Backup settings modal (dev app)', () => {
-  test('opens from the toolbar and renders the three configuration sections', async ({
-    page,
-  }) => {
+  test('opens from the toolbar and renders the three configuration sections', async ({ page }) => {
     await mockSettingsResponse(page)
     await openBackupDashboard(page)
     await page.getByRole('button', { name: /^Backup settings$/ }).click()

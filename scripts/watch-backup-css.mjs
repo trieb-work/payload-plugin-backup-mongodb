@@ -11,13 +11,7 @@ import { execSync } from 'node:child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const scssPath = join(
-  root,
-  'src',
-  'components',
-  'BackupDashboard',
-  'index.scss',
-)
+const scssPath = join(root, 'src', 'components', 'BackupDashboard', 'index.scss')
 
 let timer = null
 function run() {
@@ -40,6 +34,9 @@ run()
 try {
   watch(scssPath, { persistent: true }, run)
 } catch (e) {
-  console.error('watch-backup-css: failed to watch (try saving index.scss to trigger a rebuild):', e)
+  console.error(
+    'watch-backup-css: failed to watch (try saving index.scss to trigger a rebuild):',
+    e,
+  )
   process.exit(1)
 }

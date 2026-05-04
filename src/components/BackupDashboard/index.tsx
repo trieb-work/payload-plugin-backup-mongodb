@@ -142,14 +142,14 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, pa
             </span>
             <span className="backup-dashboard__toolbar-pill">
               <span className="backup-dashboard__toolbar-key">Last backup</span>
-              {lastBackup
-                ? new Date(
-                    getBackupSortTimeMs(
-                      transformBlobName(lastBackup.pathname),
-                      new Date(lastBackup.uploadedAt),
-                    ),
-                  ).toLocaleString(i18n?.language || 'en')
-                : 'No backups yet'}
+              {lastBackup ?
+                new Date(
+                  getBackupSortTimeMs(
+                    transformBlobName(lastBackup.pathname),
+                    new Date(lastBackup.uploadedAt),
+                  ),
+                ).toLocaleString(i18n?.language || 'en')
+              : 'No backups yet'}
             </span>
           </div>
           <div className="make-backup-actions">

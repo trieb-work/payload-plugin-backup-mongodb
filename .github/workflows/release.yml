@@ -30,21 +30,28 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
           always-auth: true
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies (no install scripts)
+        # Hardening: NPM_TOKEN is exposed in this job. Block all postinstall
+        # scripts from third-party deps and only rebuild the approved allowlist
+        # in pnpm.onlyBuiltDependencies. The repo's own `prepare` script is
+        # also skipped (build runs explicitly via `pnpm run release`).
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        run: pnpm rebuild
 
       - name: Create release PR or publish to npm
         uses: changesets/action@v1.7.0
         with:
           version: pnpm changeset version
-          commit: 'chore(release): version packages'
-          title: 'chore: release new version'
+          commit: "chore(release): version packages"
+          title: "chore: release new version"
           publish: pnpm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
+          NPM_CONFIG_PROVENANCE: "true"
