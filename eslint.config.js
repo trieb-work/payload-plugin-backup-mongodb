@@ -18,6 +18,7 @@ export const defaultESLintIgnores = [
   '**/tsconfig.tsbuildinfo',
   '**/README.md',
   '**/payload-types.ts',
+  'src/components/BackupDashboard/backupDashboardInlineCss.ts',
   '**/dist/',
   '**/.next/**',
   '**/.yarn/',
