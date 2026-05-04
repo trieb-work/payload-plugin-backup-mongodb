@@ -1,0 +1,40 @@
+# GitHub-native protection that complements .github/workflows/validate-release-pr.yml.
+#
+# Strategy:
+#   - List ONLY paths that a release / dependency bot must NOT touch silently.
+#   - Paths NOT listed here have no code owner -> no mandatory review under
+#     "Require review from Code Owners". This is intentional: it lets the
+#     `changesets-release/main` PR (which only touches CHANGELOG.md,
+#     package.json, pnpm-lock.yaml, and .changeset/*.md) merge without an
+#     extra approval round.
+#   - Anything else (source code, workflows, husky hooks, build/lint configs)
+#     requires an admin review BEFORE the merge button becomes available.
+#
+# Pre-requisite: enable "Require a pull request before merging" and
+# "Require review from Code Owners" in the branch protection rule for `main`.
+
+# Source & build pipeline
+/src/                                        @JannikZed @tilman
+/scripts/                                    @JannikZed @tilman
+/dev/                                        @JannikZed @tilman
+/tests/                                      @JannikZed @tilman
+/docs/                                       @JannikZed @tilman
+
+# CI, hooks, supply-chain critical config
+/.github/                                    @JannikZed @tilman
+/.husky/                                     @JannikZed @tilman
+/.npmrc                                      @JannikZed @tilman
+
+# Lint / format / type / test config
+/eslint.config.js                            @JannikZed @tilman
+/.prettierrc.json                            @JannikZed @tilman
+/.prettierignore                             @JannikZed @tilman
+/.editorconfig                               @JannikZed @tilman
+/.swcrc                                      @JannikZed @tilman
+/tsconfig.json                               @JannikZed @tilman
+/tsconfig.build.json                         @JannikZed @tilman
+/playwright.config.ts                        @JannikZed @tilman
+/vitest.config.js                            @JannikZed @tilman
+
+# CODEOWNERS itself must not be silently rewritten
+/.github/CODEOWNERS                          @JannikZed @tilman
