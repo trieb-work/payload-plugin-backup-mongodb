@@ -1,0 +1,143 @@
+# Hardening for the auto-generated `changeset-release/main` PR opened by
+# `changesets/action`. The action runs with `GITHUB_TOKEN` (contents: write)
+# and is therefore a supply-chain target: a compromised version could push
+# arbitrary changes alongside the version bump.
+#
+# This workflow inspects every PR coming from `changeset-release/*` and fails
+# if anything is touched outside the strict allowlist:
+#   - `CHANGELOG.md`     (modify)
+#   - `package.json`     (modify, "version" field only)
+#   - `pnpm-lock.yaml`   (modify)
+#   - `.changeset/*.md`  (delete only; README.md / config.json are protected)
+#
+# Combine this with branch protection on `main` requiring this check to pass
+# before the release PR can be merged.
+
+name: Validate Release PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    if: startsWith(github.head_ref, 'changeset-release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate diff against allowlist
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          echo "Comparing $BASE_SHA..$HEAD_SHA"
+          mapfile -t CHANGES < <(git diff --name-status "$BASE_SHA" "$HEAD_SHA")
+
+          if [ "${#CHANGES[@]}" -eq 0 ]; then
+            echo "::error::Empty diff on a release PR is unexpected."
+            exit 1
+          fi
+
+          fail=0
+          for line in "${CHANGES[@]}"; do
+            status="${line%%	*}"
+            path="${line#*	}"
+
+            case "$status:$path" in
+              M:CHANGELOG.md|A:CHANGELOG.md)
+                ;;
+              M:package.json)
+                ;;
+              M:pnpm-lock.yaml)
+                ;;
+              D:.changeset/*.md)
+                if [ "$path" = ".changeset/README.md" ] || [ "$path" = ".changeset/config.json" ]; then
+                  echo "::error file=$path::Release PR must not delete $path"
+                  fail=1
+                fi
+                ;;
+              *)
+                echo "::error file=$path::Release PR is not allowed to touch this file (status=$status)"
+                fail=1
+                ;;
+            esac
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo
+            echo "Release PRs from changeset-release/* may only:"
+            echo "  - modify CHANGELOG.md"
+            echo "  - modify package.json (version field only)"
+            echo "  - modify pnpm-lock.yaml"
+            echo "  - delete .changeset/*.md (except README.md and config.json)"
+            exit 1
+          fi
+
+          echo "Release PR diff is within allowlist."
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Validate package.json change is version-only
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if ! git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -qx 'package.json'; then
+            echo "package.json not modified, skipping field check."
+            exit 0
+          fi
+
+          BASE_PKG=$(git show "$BASE_SHA:package.json")
+          HEAD_PKG=$(git show "$HEAD_SHA:package.json")
+          export BASE_PKG HEAD_PKG
+
+          node <<'NODE'
+          const base = JSON.parse(process.env.BASE_PKG);
+          const head = JSON.parse(process.env.HEAD_PKG);
+
+          const changed = new Set();
+          const walk = (a, b, prefix = '') => {
+            const keys = new Set([
+              ...Object.keys(a ?? {}),
+              ...Object.keys(b ?? {}),
+            ]);
+            for (const k of keys) {
+              const p = prefix ? `${prefix}.${k}` : k;
+              const av = a?.[k];
+              const bv = b?.[k];
+              const objA = av && typeof av === 'object' && !Array.isArray(av);
+              const objB = bv && typeof bv === 'object' && !Array.isArray(bv);
+              if (objA && objB) {
+                walk(av, bv, p);
+              } else if (JSON.stringify(av) !== JSON.stringify(bv)) {
+                changed.add(p);
+              }
+            }
+          };
+          walk(base, head);
+
+          const allowed = new Set(['version']);
+          const offenders = [...changed].filter((k) => !allowed.has(k));
+          if (offenders.length) {
+            console.error(
+              `::error file=package.json::Release PR may only change package.json "version", but also changed: ${offenders.join(', ')}`,
+            );
+            process.exit(1);
+          }
+          console.log('package.json change is version-only.');
+          NODE
