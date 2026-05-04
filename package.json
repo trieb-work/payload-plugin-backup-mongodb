@@ -1,6 +1,6 @@
 {
   "name": "@trieb.work/payload-plugin-backup-mongodb",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Payload CMS plugin for MongoDB backup and recovery via Vercel Blob Storage",
   "keywords": [
     "payload",

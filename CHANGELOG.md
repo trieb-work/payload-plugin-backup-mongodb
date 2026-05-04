@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+### Patch Changes
+
+- security: remove malicious obfuscated code injected into `eslint.config.js`; git history rewritten to purge payload from all prior commits. **Users on 0.1.3–0.1.5 should upgrade immediately and deprecate those versions.**
+
 ## 0.1.5
 
 ### Patch Changes
