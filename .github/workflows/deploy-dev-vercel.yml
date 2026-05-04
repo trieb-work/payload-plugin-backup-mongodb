@@ -49,9 +49,13 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
+      - name: Install dependencies (no install scripts)
         if: steps.vercel.outputs.enabled == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        if: steps.vercel.outputs.enabled == 'true'
+        run: pnpm rebuild
 
       - name: Deploy to Vercel (preview)
         if: steps.vercel.outputs.enabled == 'true'

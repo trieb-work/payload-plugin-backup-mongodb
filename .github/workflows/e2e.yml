@@ -53,8 +53,11 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies (no install scripts)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        run: pnpm rebuild
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium

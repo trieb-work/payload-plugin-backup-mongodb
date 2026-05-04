@@ -33,8 +33,15 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           always-auth: true
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies (no install scripts)
+        # Hardening: NPM_TOKEN is exposed in this job. Block all postinstall
+        # scripts from third-party deps and only rebuild the approved allowlist
+        # in pnpm.onlyBuiltDependencies. The repo's own `prepare` script is
+        # also skipped (build runs explicitly via `pnpm run release`).
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        run: pnpm rebuild
 
       - name: Create release PR or publish to npm
         uses: changesets/action@v1.7.0
