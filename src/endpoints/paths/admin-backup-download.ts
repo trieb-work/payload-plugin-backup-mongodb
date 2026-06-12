@@ -2,12 +2,12 @@ import type { Endpoint, PayloadRequest } from 'payload'
 
 import type { BackupPluginOptions } from '../../types'
 
-import { streamBackupBlobForDownload } from '../../core/backupBlobIO'
 import {
   getResolvedCronBackupSettings,
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
 } from '../../core/backupSettings'
+import { isBackupStorageConfigured, resolveBackupStorage } from '../../core/storage'
 import { requireBackupAdmin } from '../shared'
 
 function queryParam(req: PayloadRequest, key: string): string {
@@ -38,7 +38,7 @@ export function createAdminBackupDownloadEndpoint(options: BackupPluginOptions):
       const { payload } = req
       const settings = await getResolvedCronBackupSettings(payload)
       const token = resolveBackupBlobToken(settings).trim()
-      if (!token) {
+      if (!isBackupStorageConfigured(token)) {
         return new Response('Service unavailable', { status: 503 })
       }
 
@@ -50,13 +50,14 @@ export function createAdminBackupDownloadEndpoint(options: BackupPluginOptions):
       const blobUrl = queryParam(req, 'url')
       const downloadUrl = queryParam(req, 'downloadUrl')
 
-      const preferred = resolveBackupBlobAccess(settings)
-      const opened = await streamBackupBlobForDownload({
-        blobUrl: blobUrl || undefined,
+      const storage = resolveBackupStorage({
+        blobAccess: resolveBackupBlobAccess(settings),
+        blobToken: token,
+      })
+      const opened = await storage.openDownloadStream({
         downloadUrl: downloadUrl || undefined,
         pathname,
-        preferredAccess: preferred,
-        token,
+        url: blobUrl || undefined,
       })
 
       if (!opened) {
