@@ -15,6 +15,7 @@ import {
   toPayloadSkipRows,
 } from '../../core/backupSettings'
 import { validateBackupBlobToken } from '../../core/blobTokenValidate'
+import { getBackupStorageKind, isS3Configured, loadS3Config } from '../../core/storage'
 import {
   completeBackupTask,
   createBackupTask,
@@ -33,6 +34,24 @@ function clampBackupsToKeep(n: unknown): number {
     return 10
   }
   return Math.min(365, Math.max(1, Math.floor(n)))
+}
+
+/** Active backup target + a non-secret S3 summary for the admin UI. */
+function backupStorageSummary() {
+  const kind = getBackupStorageKind()
+  if (kind !== 's3' || !isS3Configured()) {
+    return { kind }
+  }
+  const cfg = loadS3Config()
+  return {
+    kind,
+    s3: {
+      bucket: cfg.bucket,
+      endpoint: cfg.endpoint,
+      prefix: cfg.prefix || undefined,
+      region: cfg.region,
+    },
+  }
 }
 
 function buildSettingsJson(
@@ -82,6 +101,7 @@ function buildSettingsJson(
     includeMediaForCron: stored.includeMediaForCron,
     pluginBackupsToKeepOverride: typeof options.backupsToKeep === 'number',
     skipMongoCollections: stored.skipMongoCollections,
+    storage: backupStorageSummary(),
     transfer: t,
   }
 }
