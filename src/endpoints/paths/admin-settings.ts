@@ -162,8 +162,9 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
 
         // Access detection: re-probe when the token actually changes; preserve existing otherwise;
         // clear when the override is removed (falls back to heuristic on the default env token).
+        // Skip Vercel validation when the active target is S3.
         let backupBlobAccessForDb: 'private' | 'public' | null = stored.backupBlobAccess
-        if (!preserveTokenField) {
+        if (!preserveTokenField && getBackupStorageKind() !== 's3') {
           if (tokenForDb.length === 0) {
             backupBlobAccessForDb = null
           } else {
@@ -214,6 +215,21 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
         const humanDescription =
           vercelCron?.schedule != null ? describeCronSchedule(vercelCron.schedule) : null
 
+        // Blob transfer is a Vercel-specific operation (moving blobs between tokens).
+        // Skip entirely when the active target is S3.
+        if (getBackupStorageKind() === 's3' || !transferBackupBlobs) {
+          return Response.json(
+            buildSettingsJson(stored, options, vercelCron, humanDescription, {
+              deferred: false,
+              failed: 0,
+              performed: false,
+              skipped: 0,
+              total: 0,
+              transferred: 0,
+            }),
+          )
+        }
+
         const newBlobToken = stored.backupBlobReadWriteToken.trim()
         // Read blobs from the *previous* store when rotating tokens; otherwise first-time setup
         // reads from BLOB_READ_WRITE_TOKEN (default Vercel store).
@@ -227,7 +243,7 @@ export function createAdminSettingsEndpoints(options: BackupPluginOptions): Endp
           sourceTokenForTransfer.length > 0 &&
           newBlobToken !== sourceTokenForTransfer
 
-        if (!transferBackupBlobs || !shouldTransferToNewBlobToken) {
+        if (!shouldTransferToNewBlobToken) {
           return Response.json(
             buildSettingsJson(stored, options, vercelCron, humanDescription, {
               deferred: false,

@@ -7,7 +7,11 @@ import {
   resolveBackupBlobToken,
 } from '../../core/backupSettings'
 import { restoreBackup } from '../../core/restore'
-import { getBackupStorageKind, isBackupStorageConfigured } from '../../core/storage'
+import {
+  getBackupStorageKind,
+  isBackupStorageConfigured,
+  resolveBackupStorage,
+} from '../../core/storage'
 import { readRequestJson, requireCronBearer } from '../shared'
 
 export function createCronRestoreEndpoint(): Endpoint {
@@ -42,11 +46,13 @@ export function createCronRestoreEndpoint(): Endpoint {
         })
       }
 
+      const storage = resolveBackupStorage({ blobAccess, blobToken })
       payload.logger.info({ url }, '[backup-endpoint] Restore request accepted')
       await restoreBackup(payload, url, [], false, undefined, {
         backupRead: backupRead ?? undefined,
         blobAccess,
         blobToken,
+        storage,
       })
       payload.logger.info({ url }, '[backup-endpoint] Restore request finished')
       return Response.json({ message: 'Backup restore finished' }, { status: 202 })

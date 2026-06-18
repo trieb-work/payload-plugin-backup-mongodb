@@ -17,13 +17,6 @@ export function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status })
 }
 
-export function requireBlobEnv(): null | Response {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return jsonError('Service unavailable', 503)
-  }
-  return null
-}
-
 export function requireCronBearer(req: PayloadRequest): null | Response {
   // Security gate for cron/external backup routes: only a matching CRON_SECRET bearer may pass.
   const authHeader = req.headers.get('authorization')

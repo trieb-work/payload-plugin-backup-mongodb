@@ -1,17 +1,14 @@
 import type { Payload } from 'payload'
 
 import { EJSON } from 'bson'
-import fs from 'node:fs/promises'
-import path from 'node:path'
+
+import type { BackupStorageAdapter } from './storage/types'
 
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import {
-  type BackupBlobAccessLevel,
-  putBackupBlobContent,
-  readBackupBlobContentFlexible,
-} from './backupBlobIO'
+import { type BackupBlobAccessLevel, readBackupBlobContentFlexible } from './backupBlobIO'
 import { getDb } from './db'
+import { resolveBackupStorage } from './storage'
 import { updateBackupTask } from './taskProgress'
 
 export interface RestoreBackupOptions {
@@ -33,6 +30,11 @@ export interface RestoreBackupOptions {
    * collections still restore). Default true.
    */
   restoreArchiveMedia?: boolean
+  /**
+   * Storage adapter for media file operations. When omitted, a default adapter is resolved
+   * from `blobAccess`/`blobToken`.
+   */
+  storage?: BackupStorageAdapter
 }
 
 export async function restoreBackup(
@@ -47,6 +49,7 @@ export async function restoreBackup(
   const blobToken = options?.blobToken
   const blobAccess: BackupBlobAccessLevel = options?.blobAccess ?? 'public'
   const backupRead = options?.backupRead
+  const storage = options?.storage ?? resolveBackupStorage({ blobAccess, blobToken })
   const t0 = Date.now()
   const urlBase = downloadUrl.split('?')?.[0]
 
@@ -117,25 +120,25 @@ export async function restoreBackup(
       })
     }
     const mediaResults = await Promise.all(
-      medias.map((media) =>
-        putBackupBlobContent(media.name, media.content, blobToken, blobAccess).then(
-          (effectiveAccess) => ({ name: media.name, effectiveAccess }),
-        ),
-      ),
+      medias.map(async (media) => {
+        try {
+          await storage.put(media.name, media.content)
+          return { name: media.name, ok: true }
+        } catch (err) {
+          payload.logger.error({ name: media.name, err }, '[restore] Failed to upload media file')
+          return { name: media.name, ok: false }
+        }
+      }),
     )
-    const mismatched = mediaResults.filter((r) => r.effectiveAccess !== blobAccess)
-    if (mismatched.length > 0) {
-      payload.logger.warn(
-        { count: mismatched.length, preferredAccess: blobAccess },
-        '[restore] Blob store rejected preferred access level for media; uploaded with fallback',
-      )
+    const failed = mediaResults.filter((r) => !r.ok)
+    if (failed.length > 0) {
+      payload.logger.warn({ count: failed.length }, '[restore] Some media files failed to upload')
     }
-    mediaResults.forEach((result) => {
-      payload.logger.debug(
-        { name: result.name, access: result.effectiveAccess },
-        '[restore] Media file uploaded',
-      )
-    })
+    mediaResults
+      .filter((r) => r.ok)
+      .forEach((result) => {
+        payload.logger.debug({ name: result.name }, '[restore] Media file uploaded')
+      })
   } else {
     throw new Error(`File type of backup ${downloadUrl} not supported`)
   }
@@ -203,42 +206,4 @@ export async function restoreBackup(
   }
 
   payload.logger.info({ durationMs: Date.now() - t0 }, '[restore] Restore complete')
-}
-
-export async function restoreSeedMedia(payload: Payload, taskId?: string): Promise<string[]> {
-  const files = await fs.readdir(path.join(process.cwd(), 'public/seed/media'))
-  if (taskId) {
-    await updateBackupTask(payload, taskId, {
-      message: `Restoring ${files.length} seed media file${files.length === 1 ? '' : 's'}`,
-      status: 'running',
-    })
-  }
-  for (const file of files) {
-    const data = await fs.readFile(path.join(process.cwd(), 'public/seed/media', file))
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const effectiveAccess = await putBackupBlobContent(
-        file,
-        data,
-        process.env.BLOB_READ_WRITE_TOKEN,
-        'public',
-      )
-      payload.logger.info(
-        { access: effectiveAccess, file },
-        '[restore] Restored seed media to Vercel Blob storage',
-      )
-    } else {
-      const folderPath = path.join(process.cwd(), 'public/media')
-      const publicPath = path.join(folderPath, file)
-      await fs.mkdir(folderPath, { recursive: true })
-      await fs.writeFile(publicPath, data)
-      payload.logger.info({ file, publicPath }, '[restore] Restored seed media to public directory')
-    }
-    if (taskId) {
-      await updateBackupTask(payload, taskId, {
-        message: `Restored seed media file ${file}`,
-      })
-    }
-  }
-  payload.logger.info({ count: files.length }, '[restore] Restored all seed media files')
-  return files
 }

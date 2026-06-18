@@ -36,22 +36,24 @@ export class S3BackupStorage implements BackupStorageAdapter {
     this.cfg = cfg
   }
 
+  private async buildClient(): Promise<S3Client> {
+    const { S3Client } = await this.sdk()
+    const { accessKeyId, secretAccessKey, sessionToken } = this.cfg
+    return new S3Client({
+      ...(this.cfg.endpoint ? { endpoint: this.cfg.endpoint } : {}),
+      forcePathStyle: this.cfg.forcePathStyle,
+      region: this.cfg.region,
+      // When keys are absent, fall back to the SDK's default credential provider chain
+      // (env vars, shared config, instance/role credentials).
+      ...(accessKeyId && secretAccessKey ?
+        { credentials: { accessKeyId, secretAccessKey, sessionToken } }
+      : {}),
+    })
+  }
+
   private async client(): Promise<S3Client> {
     if (!this.clientPromise) {
-      this.clientPromise = (async () => {
-        const { S3Client } = await this.sdk()
-        const { accessKeyId, secretAccessKey, sessionToken } = this.cfg
-        return new S3Client({
-          ...(this.cfg.endpoint ? { endpoint: this.cfg.endpoint } : {}),
-          forcePathStyle: this.cfg.forcePathStyle,
-          region: this.cfg.region,
-          // When keys are absent, fall back to the SDK's default credential provider chain
-          // (env vars, shared config, instance/role credentials).
-          ...(accessKeyId && secretAccessKey ?
-            { credentials: { accessKeyId, secretAccessKey, sessionToken } }
-          : {}),
-        })
-      })()
+      this.clientPromise = this.buildClient()
     }
     return this.clientPromise
   }
