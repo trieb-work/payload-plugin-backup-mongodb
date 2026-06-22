@@ -11,6 +11,11 @@ import {
   resolveBackupBlobToken,
 } from '../../core/backupSettings'
 import { restoreBackup } from '../../core/restore'
+import {
+  getBackupStorageKind,
+  isBackupStorageConfigured,
+  resolveBackupStorage,
+} from '../../core/storage'
 import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress'
 import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
 
@@ -26,7 +31,7 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
       const blobAccess = resolveBackupBlobAccess(settings)
-      if (!blobToken) {
+      if (!isBackupStorageConfigured(blobToken)) {
         return jsonError('Service unavailable', 503)
       }
 
@@ -51,10 +56,11 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
       }
 
       const backupRead = resolveBackupArchiveRead(settings, pathname)
-      if (blobAccess === 'private' && !backupRead) {
+      if (getBackupStorageKind() === 'vercel-blob' && blobAccess === 'private' && !backupRead) {
         return jsonError('Missing pathname (required for dedicated backup blob store)', 400)
       }
 
+      const storage = resolveBackupStorage({ blobAccess, blobToken })
       const { pollSecret, taskId } = await createBackupTask(payload, 'restore', 'Restore queued')
 
       payload.logger.info({ taskId, url }, '[backup-endpoint] Restore queued')
@@ -68,6 +74,7 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
           blobAccess,
           blobToken,
           restoreArchiveMedia,
+          storage,
         })
           .then(() => completeBackupTask(payload, taskId, 'Restore completed'))
           .catch(async (error) => {

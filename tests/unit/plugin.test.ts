@@ -71,15 +71,4 @@ describe('backupMongodbPlugin', () => {
     expect(afterDashboard[0]).toBe(existingAfter)
     expect(afterDashboard[1]).toMatch(/BackupDashboard/)
   })
-
-  it('does not register the seed endpoint unless seedDemoDumpUrl is set', () => {
-    const withoutSeed = applyPlugin({}, baseConfig())
-    const withSeed = applyPlugin({ seedDemoDumpUrl: 'https://x/y.json' }, baseConfig())
-
-    const pathsWithout = (withoutSeed.endpoints ?? []).map((e: { path: string }) => e.path)
-    const pathsWith = (withSeed.endpoints ?? []).map((e: { path: string }) => e.path)
-
-    expect(pathsWithout).not.toContain('/backup-mongodb/admin/seed')
-    expect(pathsWith).toContain('/backup-mongodb/admin/seed')
-  })
 })

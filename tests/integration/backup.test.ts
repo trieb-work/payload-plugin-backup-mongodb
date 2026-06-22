@@ -212,6 +212,16 @@ describe('createBackup', () => {
 })
 
 describe('createMediaBackupFile', () => {
+  const mockStorage = {
+    del: vi.fn(),
+    kind: 'vercel-blob' as const,
+    list: vi.fn(),
+    openDownloadStream: vi.fn(),
+    put: vi.fn(),
+    read: vi.fn(),
+    validate: vi.fn(),
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -225,16 +235,11 @@ describe('createMediaBackupFile', () => {
       uploadedAt: new Date(),
       url: 'https://blob.com/image.png',
     }
-    vi.mocked(list).mockResolvedValue({ blobs: [mockBlobFile], cursor: undefined, hasMore: false })
-
-    global.fetch = vi.fn().mockResolvedValue({
-      arrayBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image-data').buffer),
-      ok: true,
-      status: 200,
-    }) as any
+    mockStorage.list.mockResolvedValue([mockBlobFile])
+    mockStorage.read.mockResolvedValue(Buffer.from('fake-image-data'))
 
     const mediaCollection = [{ filename: 'image.png' }]
-    const result = await createMediaBackupFile('{"pages":[]}', mediaCollection)
+    const result = await createMediaBackupFile('{"pages":[]}', mediaCollection, mockStorage)
 
     expect(result).toBeInstanceOf(Buffer)
     expect(result[0]).toBe(0x1f)
@@ -242,7 +247,7 @@ describe('createMediaBackupFile', () => {
   })
 
   it('skips missing media files with a warning', async () => {
-    vi.mocked(list).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false })
+    mockStorage.list.mockResolvedValue([])
     const warn = vi.fn()
     const mockPayload = {
       logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn },
@@ -251,14 +256,48 @@ describe('createMediaBackupFile', () => {
     const result = await createMediaBackupFile(
       '{}',
       [{ filename: 'missing.png' }],
-      undefined,
-      undefined,
+      mockStorage,
       mockPayload,
     )
 
     expect(warn).toHaveBeenCalledWith(
       { filename: 'missing.png' },
       expect.stringMatching(/not in blob storage/i),
+    )
+    expect(result).toBeInstanceOf(Buffer)
+  })
+
+  it('isolates failures per media file', async () => {
+    mockStorage.list.mockImplementation(async (prefix: string) => {
+      if (prefix === 'ok.png') {
+        return [
+          {
+            downloadUrl: 'https://blob.com/ok.png',
+            pathname: 'ok.png',
+            size: 1,
+            uploadedAt: new Date(),
+            url: 'https://blob.com/ok.png',
+          },
+        ]
+      }
+      return []
+    })
+    mockStorage.read.mockRejectedValue(new Error('network error'))
+    const warn = vi.fn()
+    const mockPayload = {
+      logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn },
+    } as unknown as Payload
+
+    const result = await createMediaBackupFile(
+      '{}',
+      [{ filename: 'ok.png' }],
+      mockStorage,
+      mockPayload,
+    )
+
+    expect(warn).toHaveBeenCalledWith(
+      { err: expect.any(Error), filename: 'ok.png' },
+      expect.stringMatching(/Failed to read media file from storage/i),
     )
     expect(result).toBeInstanceOf(Buffer)
   })

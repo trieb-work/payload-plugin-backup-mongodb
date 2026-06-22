@@ -9,9 +9,10 @@
 
 A **Payload CMS v3** plugin for **MongoDB only** — not Postgres, SQLite, or
 other database adapters. It handles Mongo + media backup, restore, and scheduled
-retention with zero meta-database and a built-in admin UI. Backups live directly
-in Vercel Blob Storage, so a fresh install can list and restore any prior backup
-without bootstrapping a database first.
+retention with zero meta-database and a built-in admin UI. Backups live in
+**Vercel Blob Storage** (default) or **AWS S3 / S3-compatible stores** (R2,
+MinIO, etc.), so a fresh install can list and restore any prior backup without
+bootstrapping a database first.
 
 ![Backup dashboard embedded in the Payload admin panel](./docs/screenshots/dashboard.png)
 
@@ -51,15 +52,13 @@ originated at
   you do not add `app/.../route.ts` files for this plugin.
 - **Pluggable blob storage.** Uses `BLOB_READ_WRITE_TOKEN` by default (the same
   store you often use with `@payloadcms/storage-vercel-blob`), or point backups
-  at a dedicated Vercel Blob store in the admin. Both **public** and **private**
-  access stores are supported; a validation step detects which modes the store
-  accepts.
-- **Resumable long-running tasks.** Manual backups, restores, and seed runs are
-  tracked in a hidden `backup-tasks` collection (TTL, 30 min). The UI polls
-  progress with a short-lived `pollSecret` so long jobs stay observable even
-  across reloads.
-- **Demo/seed support.** Optional `seedDemoDumpUrl` registers a one-click seed
-  endpoint for templates and starters.
+  at a dedicated Vercel Blob store in the admin. Alternatively set
+  `BACKUP_STORAGE=s3` and use AWS S3, Cloudflare R2, MinIO, etc. Both **public**
+  and **private** access stores are supported; a validation step detects which
+  modes the store accepts.
+- **Resumable long-running tasks.** Manual backups and restores are tracked in a
+  hidden `backup-tasks` collection (TTL, 30 min). The UI polls progress with a
+  short-lived `pollSecret` so long jobs stay observable even across reloads.
 - **Tested.** Vitest covers archive, backup, restore, task progress, blob I/O,
   endpoint auth, cron parsing, and blob-name helpers.
 
@@ -70,27 +69,102 @@ originated at
 - Payload **v3+** (same major as your other `@payloadcms/*` packages).
 - MongoDB with Payload’s mongoose adapter (`@payloadcms/db-mongodb`).
 - MongoDB server (any version supported by that adapter).
-- A Vercel Blob read/write token (`BLOB_READ_WRITE_TOKEN`). Vercel hosting is
-  **not** required — any Node runtime that can reach Vercel Blob works.
+- A backup target:
+  - **Vercel Blob:** `BLOB_READ_WRITE_TOKEN` (the default target). Vercel
+    hosting is **not** required — any Node runtime that can reach Vercel Blob
+    works.
+  - **S3:** `BACKUP_STORAGE=s3` plus `BACKUP_S3_BUCKET` (and optionally
+    credentials). See
+    [Choosing a backup target](#choosing-a-backup-target-vercel-blob-or-s3).
 - Next.js **15+** and React **19+** (the usual Payload 3 + App Router stack).
 
 ### Environment variables
 
-| Variable                       | Required | Purpose                                                                                                                                                                                                                                                                                                                |
-| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MONGODB_URI`                  | yes      | MongoDB connection string (used by Payload and to label backups with the DB name).                                                                                                                                                                                                                                     |
-| `BLOB_READ_WRITE_TOKEN`        | yes      | Default Vercel Blob store for backups and media. Can be overridden in admin settings.                                                                                                                                                                                                                                  |
-| `CRON_SECRET`                  | for cron | Bearer token for every `/api/backup-mongodb/cron/*` call. Vercel Cron can supply this.                                                                                                                                                                                                                                 |
-| `NEXT_PUBLIC_SERVER_URL`       | optional | Used to label backups with the current host. Falls back to `VERCEL_URL` when set.                                                                                                                                                                                                                                      |
-| `BACKUPS_TO_KEEP`              | optional | Default retention for cron backups if the settings document has not been edited. Default `10`.                                                                                                                                                                                                                         |
-| `PAYLOAD_BACKUP_ALLOWED_ROLES` | optional | Comma-separated role slugs that may see the **Backups** dashboard (case-insensitive). Use `*` to allow any authenticated user. When unset, the plugin falls back to requiring a `role` with slug `admin`, or allows everyone when the users collection has no `roles` field. Overridden by the `access` plugin option. |
+| Variable                       | Required        | Purpose                                                                                                                                                                                                                                                                                                                |
+| ------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`                  | yes             | MongoDB connection string (used by Payload and to label backups with the DB name).                                                                                                                                                                                                                                     |
+| `BACKUP_STORAGE`               | optional        | Backup target: `vercel-blob` (default) or `s3`. See [Choosing a backup target](#choosing-a-backup-target-vercel-blob-or-s3).                                                                                                                                                                                           |
+| `BLOB_READ_WRITE_TOKEN`        | for Vercel Blob | Default Vercel Blob store for backups and media. Required when `BACKUP_STORAGE=vercel-blob` (the default). Can be overridden in admin settings.                                                                                                                                                                        |
+| `CRON_SECRET`                  | for cron        | Bearer token for every `/api/backup-mongodb/cron/*` call. Vercel Cron can supply this.                                                                                                                                                                                                                                 |
+| `NEXT_PUBLIC_SERVER_URL`       | optional        | Used to label backups with the current host. Falls back to `VERCEL_URL` when set.                                                                                                                                                                                                                                      |
+| `BACKUPS_TO_KEEP`              | optional        | Default retention for cron backups if the settings document has not been edited. Default `10`.                                                                                                                                                                                                                         |
+| `PAYLOAD_BACKUP_ALLOWED_ROLES` | optional        | Comma-separated role slugs that may see the **Backups** dashboard (case-insensitive). Use `*` to allow any authenticated user. When unset, the plugin falls back to requiring a `role` with slug `admin`, or allows everyone when the users collection has no `roles` field. Overridden by the `access` plugin option. |
+
+---
+
+## Choosing a backup target (Vercel Blob or S3)
+
+Backups can be stored in **Vercel Blob** (default) or **AWS S3**. The S3 target
+also works with any S3-compatible store — **Cloudflare R2**, **MinIO**, etc. —
+because they share the same API; only the configuration differs, never the
+plugin code.
+
+Select the target with `BACKUP_STORAGE`. When unset it stays `vercel-blob`, so
+existing deployments are unaffected.
+
+### Using S3
+
+S3 is enabled when `BACKUP_STORAGE=s3`. Install the AWS SDK (declared as
+optional peer dependencies, so Vercel-only installs don't pull it in):
+
+```bash
+pnpm add @aws-sdk/client-s3 @aws-sdk/lib-storage @aws-sdk/s3-request-presigner
+```
+
+| Variable                      | Required | Purpose                                                                                                               |
+| ----------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `BACKUP_STORAGE`              | yes      | Set to `s3`.                                                                                                          |
+| `BACKUP_S3_BUCKET`            | yes      | Target bucket name.                                                                                                   |
+| `BACKUP_S3_REGION`            | optional | Region. Falls back to `AWS_REGION`, then `us-east-1`.                                                                 |
+| `BACKUP_S3_ENDPOINT`          | optional | Custom endpoint for S3-compatible stores (R2, MinIO). Omit for AWS S3.                                                |
+| `BACKUP_S3_FORCE_PATH_STYLE`  | optional | Path-style addressing. Defaults to `true` when an endpoint is set (needed for MinIO and some R2 setups).              |
+| `BACKUP_S3_PREFIX`            | optional | Key namespace prepended to every object (for sharing a bucket). Backups still list/restore by their `backups/…` name. |
+| `BACKUP_S3_ACCESS_KEY_ID`     | optional | Access key. Falls back to `AWS_ACCESS_KEY_ID`. Omit to use the AWS default credential chain (IAM roles, etc.).        |
+| `BACKUP_S3_SECRET_ACCESS_KEY` | optional | Secret key. Falls back to `AWS_SECRET_ACCESS_KEY`.                                                                    |
+| `BACKUP_S3_SESSION_TOKEN`     | optional | Session token for temporary credentials. Falls back to `AWS_SESSION_TOKEN`.                                           |
+
+Credentials are optional: when omitted, the AWS SDK's default provider chain is
+used (environment, shared config, or instance/role credentials — recommended on
+AWS).
+
+**AWS S3**
+
+```bash
+BACKUP_STORAGE=s3
+BACKUP_S3_BUCKET=my-payload-backups
+BACKUP_S3_REGION=eu-central-1
+# Credentials via IAM role (recommended) or:
+# BACKUP_S3_ACCESS_KEY_ID=...
+# BACKUP_S3_SECRET_ACCESS_KEY=...
+```
+
+**Cloudflare R2**
+
+```bash
+BACKUP_STORAGE=s3
+BACKUP_S3_BUCKET=my-payload-backups
+BACKUP_S3_REGION=auto
+BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+BACKUP_S3_FORCE_PATH_STYLE=true
+BACKUP_S3_ACCESS_KEY_ID=<r2-access-key-id>
+BACKUP_S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
+```
+
+Backups are stored under the same `backups/…` keys (see
+[Blob naming](#blob-naming)), so listing and restore work identically across
+targets. Downloads stream through the plugin's authenticated endpoint, so the
+bucket does **not** need to be public.
+
+> **Note on media:** the "include media" option bundles files from your Payload
+> upload store. The configurable target above governs where backup **archives**
+> live; media is read from / restored to your existing upload store as before.
 
 ---
 
 ## Installation and getting started
 
 Use this flow when **adding the plugin to an existing Payload 3 + Next.js app**
-that already has MongoDB and (typically) Vercel Blob configured.
+that already has MongoDB and a blob/S3 store configured.
 
 ### 1. Add the package
 
@@ -219,8 +293,10 @@ Retention, storage token, and cron collection skip list live in one modal:
 - **Retention:** how many **cron** archives to keep; manual backups are not
   pruned by this.
 - **Dedicated backup storage (optional):** a separate Vercel Blob read/write
-  token so backups can live in a different store than media. The UI can validate
-  the token and optionally copy existing `backups/*` objects to the new store.
+  token (when `BACKUP_STORAGE=vercel-blob`) so backups can live in a different
+  store than media. The UI can validate the token and optionally copy existing
+  `backups/*` objects to the new store. For S3, configure the target bucket via
+  environment variables.
 - **Collection selection for cron:** defaults to all collections, with
   per-collection opt-out.
 
@@ -240,12 +316,6 @@ type BackupPluginOptions = {
   backupsToKeep?: number
 
   /**
-   * If set, registers `POST /api/backup-mongodb/admin/seed` (demo dump + public seed media where applicable).
-   * Omit in production unless you need it.
-   */
-  seedDemoDumpUrl?: string
-
-  /**
    * Custom access check for admin routes and the dashboard. Overrides the
    * `PAYLOAD_BACKUP_ALLOWED_ROLES` env var when provided.
    *
@@ -256,19 +326,6 @@ type BackupPluginOptions = {
    */
   access?: (user: Record<string, unknown> | null) => boolean
 }
-```
-
-Example with custom access and seed URL (typical for starters):
-
-```ts
-backupMongodbPlugin({
-  access: (user) =>
-    Array.isArray((user as { roles?: { slug?: string }[] })?.roles) &&
-    (user as { roles: { slug?: string }[] }).roles.some(
-      (r) => r?.slug === 'admin' || r?.slug === 'superadmin',
-    ),
-  seedDemoDumpUrl: 'https://example.com/seed/demo-db.json',
-})
 ```
 
 ---
@@ -291,18 +348,17 @@ Authorization: Bearer <CRON_SECRET>
 
 ### Admin (session cookie, or `pollSecret` for `/task/:id` where applicable)
 
-| Method         | Path                                                           |
-| -------------- | -------------------------------------------------------------- |
-| `POST`         | `/api/backup-mongodb/admin/manual`                             |
-| `POST`         | `/api/backup-mongodb/admin/restore`                            |
-| `POST`         | `/api/backup-mongodb/admin/backup-preview`                     |
-| `POST`         | `/api/backup-mongodb/admin/restore-preview`                    |
-| `POST`         | `/api/backup-mongodb/admin/delete`                             |
-| `GET`          | `/api/backup-mongodb/admin/backup-download`                    |
-| `GET`          | `/api/backup-mongodb/admin/task/:id`                           |
-| `GET` / `POST` | `/api/backup-mongodb/admin/settings`                           |
-| `POST`         | `/api/backup-mongodb/admin/validate-blob-token`                |
-| `POST`         | `/api/backup-mongodb/admin/seed` — if `seedDemoDumpUrl` is set |
+| Method         | Path                                            |
+| -------------- | ----------------------------------------------- |
+| `POST`         | `/api/backup-mongodb/admin/manual`              |
+| `POST`         | `/api/backup-mongodb/admin/restore`             |
+| `POST`         | `/api/backup-mongodb/admin/backup-preview`      |
+| `POST`         | `/api/backup-mongodb/admin/restore-preview`     |
+| `POST`         | `/api/backup-mongodb/admin/delete`              |
+| `GET`          | `/api/backup-mongodb/admin/backup-download`     |
+| `GET`          | `/api/backup-mongodb/admin/task/:id`            |
+| `GET` / `POST` | `/api/backup-mongodb/admin/settings`            |
+| `POST`         | `/api/backup-mongodb/admin/validate-blob-token` |
 
 ---
 
@@ -353,10 +409,11 @@ flows handle both.
 
 ### Overriding the backup store
 
-To keep backups in a **different** Vercel Blob project than media, open **Backup
-settings** in the admin, paste a dedicated `BLOB_READ_WRITE_TOKEN`, validate,
-and optionally migrate existing `backups/*` objects to the new store before
-switching.
+To keep backups in a **different** Vercel Blob project than media (when
+`BACKUP_STORAGE=vercel-blob`), open **Backup settings** in the admin, paste a
+dedicated `BLOB_READ_WRITE_TOKEN`, validate, and optionally migrate existing
+`backups/*` objects to the new store before switching. For S3, the target is
+controlled entirely by environment variables.
 
 ---
 
@@ -407,8 +464,10 @@ workflow opens a “version packages” PR or runs `pnpm run release` (`build` +
 ## Roadmap / ideas
 
 - Multipart / very large backup uploads (Vercel Blob supports large objects; may
-  need to switch past single-part limits).
-- Additional storage adapters (S3, R2, filesystem, etc.).
+  need to switch past single-part limits). _(S3 uploads already use multipart.)_
+- Additional storage adapters (filesystem, etc.). _(AWS S3 and S3-compatible
+  stores such as R2/MinIO are supported — see
+  [Choosing a backup target](#choosing-a-backup-target-vercel-blob-or-s3).)_
 - Scheduler-agnostic display when not using Vercel (`vercel.json` is currently
   used for the schedule summary where available).
 - Streaming restore for very large databases.

@@ -251,13 +251,6 @@ Still deferred (needs a real or mocked blob endpoint):
       happy-path short-circuit is covered; the async enqueue can be a
       follow-up.)_
 
-### Admin seed endpoint (integration)
-
-- [ ] **P2** — `POST /admin/seed` is only registered when `seedDemoDumpUrl` is
-      set, returns 503 without blob env, and otherwise queues
-      `restoreSeedMedia` + `restoreBackup`. _(follow-up; coverage today is only
-      that the endpoint is conditionally registered.)_
-
 ### Admin backup-download endpoint (integration)
 
 - [ ] **P2** — `GET /admin/backup-download` requires auth, validates that

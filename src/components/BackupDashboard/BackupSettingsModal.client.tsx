@@ -110,6 +110,15 @@ interface BackupSettingsApiResponse {
   includeMediaForCron?: boolean
   pluginBackupsToKeepOverride?: boolean
   skipMongoCollections?: string[]
+  storage?: {
+    kind: 's3' | 'vercel-blob'
+    s3?: {
+      bucket: string
+      endpoint?: string
+      prefix?: string
+      region: string
+    } | null
+  }
   transfer?: {
     deferred?: boolean
     failed: number
@@ -160,6 +169,7 @@ export const BackupSettingsModal: FC = () => {
   }>({ status: 'idle' })
   const [pluginOverridesRetention, setPluginOverridesRetention] = useState(false)
   const [cronInfo, setCronInfo] = useState<BackupSettingsApiResponse['cron'] | undefined>(undefined)
+  const [storage, setStorage] = useState<BackupSettingsApiResponse['storage']>(undefined)
   const [transferSummary, setTransferSummary] = useState<
     BackupSettingsApiResponse['transfer'] | null
   >(null)
@@ -258,6 +268,7 @@ export const BackupSettingsModal: FC = () => {
       setTokenCheck({ status: 'idle' })
       setPluginOverridesRetention(settingsJson.pluginBackupsToKeepOverride === true)
       setCronInfo(settingsJson.cron ?? null)
+      setStorage(settingsJson.storage)
       setIncludeMediaBlobs(settingsJson.includeMediaForCron === true)
 
       const skip =
@@ -641,6 +652,44 @@ export const BackupSettingsModal: FC = () => {
         </p>
 
         <div className="backup-confirm-dialog__body restore-preview">
+          {storage ?
+            <>
+              <p className="restore-preview__sticky-heading">Storage target</p>
+              {storage.kind === 's3' ?
+                <>
+                  <p className="restore-preview__intro">
+                    Backups use <strong>AWS S3</strong> (or S3-compatible). Selected via the{' '}
+                    <code>BACKUP_STORAGE</code> environment variable.
+                  </p>
+                  {storage.s3 ?
+                    <p className="restore-preview__intro">
+                      Bucket <code>{storage.s3.bucket}</code> · region{' '}
+                      <code>{storage.s3.region}</code>
+                      {storage.s3.endpoint ?
+                        <>
+                          {' '}
+                          · endpoint <code>{storage.s3.endpoint}</code>
+                        </>
+                      : null}
+                      {storage.s3.prefix ?
+                        <>
+                          {' '}
+                          · prefix <code>{storage.s3.prefix}</code>
+                        </>
+                      : null}
+                    </p>
+                  : <p className="restore-preview__intro">
+                      Set <code>BACKUP_S3_BUCKET</code> (and credentials) to finish configuring S3.
+                    </p>
+                  }
+                </>
+              : <p className="restore-preview__intro">
+                  Backups use <strong>Vercel Blob</strong> (default). Set{' '}
+                  <code>BACKUP_STORAGE=s3</code> in the environment to use AWS S3 instead.
+                </p>
+              }
+            </>
+          : null}
           {phase !== 'idle' ?
             <>
               <p className="restore-preview__sticky-heading">Schedule</p>
@@ -728,106 +777,111 @@ export const BackupSettingsModal: FC = () => {
             />
           </div>
 
-          <p className="restore-preview__sticky-heading">
-            Dedicated backup storage{' '}
-            <span className="restore-preview__sticky-heading-hint">(optional)</span>
-          </p>
-          <p className="restore-preview__intro">
-            Separate Vercel Blob token for <code>backups/</code>. Without one, archives share the
-            default media store.
-          </p>
-          <div className="restore-preview__settings-fields">
-            <label className="restore-preview__settings-label" htmlFor="backup-blob-token">
-              Backup Blob read/write token
-            </label>
-            <div className="restore-preview__blob-token-row">
-              <input
-                aria-label="Backup Blob read/write token"
-                autoComplete="off"
-                className="restore-preview__settings-input restore-preview__settings-input--wide"
-                id="backup-blob-token"
-                onChange={(e) => onChangeBackupBlobToken(e.target.value)}
-                placeholder="vercel_blob_rw_..."
-                spellCheck={false}
-                type="text"
-                value={backupBlobReadWriteToken}
-              />
-              <span className="restore-preview__blob-token-pill-slot">{tokenStatusPill}</span>
-            </div>
-            {tokenCheck.status === 'invalid' && tokenCheck.message ?
-              <p aria-live="polite" className="restore-preview__blob-token-error">
-                {tokenCheck.message}
+          {storage?.kind === 's3' ? null : (
+            <>
+              <p className="restore-preview__sticky-heading">
+                Dedicated backup storage{' '}
+                <span className="restore-preview__sticky-heading-hint">(optional)</span>
               </p>
-            : null}
-            {savePhase === 'transferring' && transferLive && transferLive.total > 0 ?
-              <div aria-live="polite" className="restore-preview__transfer-panel">
-                <div className="restore-preview__transfer-bar-track">
-                  <div
-                    className="restore-preview__transfer-bar-fill"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        ((transferLive.transferred + transferLive.failed) / transferLive.total) *
-                          100,
-                      )}%`,
-                    }}
-                  />
-                </div>
-                <p className="restore-preview__transfer-meta">
-                  Copying backup files: {transferLive.transferred + transferLive.failed} /{' '}
-                  {transferLive.total}
-                  {transferLive.failed > 0 ? ` (${transferLive.failed} failed)` : ''}
-                  {transferLive.pathname ?
-                    <>
-                      <br />
-                      <span
-                        className="restore-preview__transfer-path"
-                        title={transferLive.pathname}
-                      >
-                        {transferLive.pathname.length > 56 ?
-                          `${transferLive.pathname.slice(0, 28)}…${transferLive.pathname.slice(-24)}`
-                        : transferLive.pathname}
-                      </span>
-                    </>
-                  : null}
-                </p>
-              </div>
-            : null}
-            {willSaveNewRawToken ?
-              <>
-                <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
+              <p className="restore-preview__intro">
+                Separate Vercel Blob token for <code>backups/</code>. Without one, archives share
+                the default media store.
+              </p>
+              <div className="restore-preview__settings-fields">
+                <label className="restore-preview__settings-label" htmlFor="backup-blob-token">
+                  Backup Blob read/write token
+                </label>
+                <div className="restore-preview__blob-token-row">
                   <input
-                    aria-label="Copy existing backup files into this storage when saving"
-                    checked={transferBackupBlobs}
-                    className="checkbox-input__input"
-                    id={transferOptId}
-                    onChange={(e) => setTransferBackupBlobs(e.target.checked)}
-                    type="checkbox"
+                    aria-label="Backup Blob read/write token"
+                    autoComplete="off"
+                    className="restore-preview__settings-input restore-preview__settings-input--wide"
+                    id="backup-blob-token"
+                    onChange={(e) => onChangeBackupBlobToken(e.target.value)}
+                    placeholder="vercel_blob_rw_..."
+                    spellCheck={false}
+                    type="text"
+                    value={backupBlobReadWriteToken}
                   />
-                  <label className="field-label" htmlFor={transferOptId}>
-                    Copy existing backup files into this storage when saving
-                  </label>
-                  <SettingsHelpTip multiline tip={TIP_TRANSFER_COPY} />
+                  <span className="restore-preview__blob-token-pill-slot">{tokenStatusPill}</span>
                 </div>
-                {transferBackupBlobs ?
-                  <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
-                    <input
-                      aria-label="Delete from previous storage after successful copy"
-                      checked={deleteBackupBlobsFromSource}
-                      className="checkbox-input__input"
-                      id={deleteSourceOptId}
-                      onChange={(e) => setDeleteBackupBlobsFromSource(e.target.checked)}
-                      type="checkbox"
-                    />
-                    <label className="field-label" htmlFor={deleteSourceOptId}>
-                      Delete from previous storage after successful copy
-                    </label>
-                    <SettingsHelpTip multiline tip={TIP_TRANSFER_DELETE} />
+                {tokenCheck.status === 'invalid' && tokenCheck.message ?
+                  <p aria-live="polite" className="restore-preview__blob-token-error">
+                    {tokenCheck.message}
+                  </p>
+                : null}
+                {savePhase === 'transferring' && transferLive && transferLive.total > 0 ?
+                  <div aria-live="polite" className="restore-preview__transfer-panel">
+                    <div className="restore-preview__transfer-bar-track">
+                      <div
+                        className="restore-preview__transfer-bar-fill"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            ((transferLive.transferred + transferLive.failed) /
+                              transferLive.total) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="restore-preview__transfer-meta">
+                      Copying backup files: {transferLive.transferred + transferLive.failed} /{' '}
+                      {transferLive.total}
+                      {transferLive.failed > 0 ? ` (${transferLive.failed} failed)` : ''}
+                      {transferLive.pathname ?
+                        <>
+                          <br />
+                          <span
+                            className="restore-preview__transfer-path"
+                            title={transferLive.pathname}
+                          >
+                            {transferLive.pathname.length > 56 ?
+                              `${transferLive.pathname.slice(0, 28)}…${transferLive.pathname.slice(-24)}`
+                            : transferLive.pathname}
+                          </span>
+                        </>
+                      : null}
+                    </p>
                   </div>
                 : null}
-              </>
-            : null}
-          </div>
+                {willSaveNewRawToken ?
+                  <>
+                    <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
+                      <input
+                        aria-label="Copy existing backup files into this storage when saving"
+                        checked={transferBackupBlobs}
+                        className="checkbox-input__input"
+                        id={transferOptId}
+                        onChange={(e) => setTransferBackupBlobs(e.target.checked)}
+                        type="checkbox"
+                      />
+                      <label className="field-label" htmlFor={transferOptId}>
+                        Copy existing backup files into this storage when saving
+                      </label>
+                      <SettingsHelpTip multiline tip={TIP_TRANSFER_COPY} />
+                    </div>
+                    {transferBackupBlobs ?
+                      <div className="field-type checkbox backup-dashboard__collapsible-checkbox restore-preview__blob-transfer-row restore-preview__blob-transfer-row--with-help-tip">
+                        <input
+                          aria-label="Delete from previous storage after successful copy"
+                          checked={deleteBackupBlobsFromSource}
+                          className="checkbox-input__input"
+                          id={deleteSourceOptId}
+                          onChange={(e) => setDeleteBackupBlobsFromSource(e.target.checked)}
+                          type="checkbox"
+                        />
+                        <label className="field-label" htmlFor={deleteSourceOptId}>
+                          Delete from previous storage after successful copy
+                        </label>
+                        <SettingsHelpTip multiline tip={TIP_TRANSFER_DELETE} />
+                      </div>
+                    : null}
+                  </>
+                : null}
+              </div>
+            </>
+          )}
 
           <CollectionBackupPreviewBody
             embedded

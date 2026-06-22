@@ -7,7 +7,6 @@ import { createAdminDeleteEndpoint } from './paths/admin-delete'
 import { createAdminManualEndpoint } from './paths/admin-manual'
 import { createAdminPreviewEndpoints } from './paths/admin-preview'
 import { createAdminRestoreEndpoint } from './paths/admin-restore'
-import { createAdminSeedEndpoint } from './paths/admin-seed'
 import { createAdminSettingsEndpoints } from './paths/admin-settings'
 import { createAdminTaskEndpoint } from './paths/admin-task'
 import { createAdminValidateBlobTokenEndpoint } from './paths/admin-validate-blob-token'
@@ -29,11 +28,6 @@ export function createBackupMongodbEndpoints(options: BackupPluginOptions): Endp
     createAdminTaskEndpoint(options),
     createAdminValidateBlobTokenEndpoint(options),
   ]
-
-  const seed = createAdminSeedEndpoint(options)
-  if (seed) {
-    endpoints.push(seed)
-  }
 
   return endpoints
 }

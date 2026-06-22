@@ -1,6 +1,7 @@
 import type { Endpoint } from 'payload'
 
 import { listBackups, resolveBackupListToken } from '../../core/backup'
+import { isBackupStorageConfigured } from '../../core/storage'
 import { requireCronBearer } from '../shared'
 
 export function createCronListEndpoint(): Endpoint {
@@ -13,7 +14,7 @@ export function createCronListEndpoint(): Endpoint {
 
       const { payload } = req
       const backupBlobToken = await resolveBackupListToken(payload)
-      if (!backupBlobToken) {
+      if (!isBackupStorageConfigured(backupBlobToken)) {
         return new Response('Service unavailable', { status: 503 })
       }
       payload.logger.info('[backup-endpoint] Listing backups')
