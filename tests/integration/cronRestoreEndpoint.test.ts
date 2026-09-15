@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../src/core/restore', () => ({
-  restoreBackup: vi.fn(async () => undefined),
+  restoreBackup: vi.fn(async () => ({
+    archiveKind: 'json' as const,
+    collections: [{ name: 'pages', docCount: 1, kind: 'restored' as const }],
+    durationMs: 1,
+    media: null,
+  })),
 }))
 
 vi.mock('../../src/core/backupSettings', async (importOriginal) => {
@@ -102,6 +107,10 @@ describe('POST /backup-mongodb/cron/restore', () => {
     )
     expect(res.status).toBe(202)
     expect(restoreBackup).toHaveBeenCalledOnce()
+    const body = (await res.json()) as { message: string; status: string; warnings: string[] }
+    expect(body.status).toBe('completed')
+    expect(body.warnings).toEqual([])
+    expect(body.message).toMatch(/Restored 1 collection/)
   })
 
   it('requires pathname when settings resolve to a private dedicated store', async () => {

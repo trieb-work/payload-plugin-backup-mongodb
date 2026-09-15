@@ -7,7 +7,12 @@ vi.mock('next/server', () => ({
 }))
 
 vi.mock('../../src/core/restore', () => ({
-  restoreBackup: vi.fn(async () => undefined),
+  restoreBackup: vi.fn(async () => ({
+    archiveKind: 'json' as const,
+    collections: [],
+    durationMs: 1,
+    media: null,
+  })),
 }))
 
 vi.mock('../../src/core/backupSettings', async (importOriginal) => {
@@ -26,7 +31,7 @@ vi.mock('../../src/core/backupSettings', async (importOriginal) => {
 })
 
 vi.mock('../../src/core/taskProgress', () => ({
-  completeBackupTask: vi.fn(async () => undefined),
+  completeRestoreBackupTask: vi.fn(async () => undefined),
   createBackupTask: vi.fn(async () => ({ pollSecret: 'secret-hex', taskId: 'task-7' })),
   failBackupTask: vi.fn(async () => undefined),
 }))

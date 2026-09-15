@@ -11,7 +11,7 @@ export type { BackupSourcePreviewResponse } from './core/backupSourcePreview'
 export { getDb } from './core/db'
 export type { MongoDb } from './core/db'
 export { restoreBackup } from './core/restore'
-export type { RestoreBackupOptions } from './core/restore'
+export type { RestoreBackupOptions, RestoreBackupResult } from './core/restore'
 export {
   buildCollectionPreviewGroups,
   buildRestorePreviewGroups,
@@ -25,8 +25,15 @@ export type {
   RestorePreviewGroup,
   RestorePreviewResponse,
 } from './core/restorePreview'
+export { buildRestoreWarnings, formatRestoreSummary, restoreTaskStatus } from './core/restoreResult'
+export type {
+  RestoreArchiveKind,
+  RestoreCollectionOutcome,
+  RestoreMediaOutcome,
+} from './core/restoreResult'
 export {
   completeBackupTask,
+  completeRestoreBackupTask,
   createBackupTask,
   failBackupTask,
   getBackupTask,

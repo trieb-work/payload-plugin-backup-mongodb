@@ -12,7 +12,11 @@ import {
 } from '../../core/backupSettings'
 import { restoreBackup } from '../../core/restore'
 import { getBackupStorageKind, isBackupStorageConfigured } from '../../core/storage'
-import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress'
+import {
+  completeRestoreBackupTask,
+  createBackupTask,
+  failBackupTask,
+} from '../../core/taskProgress'
 import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
 
 export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoint {
@@ -74,7 +78,7 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
           blobToken,
           restoreArchiveMedia,
         })
-          .then(() => completeBackupTask(payload, taskId, 'Restore completed'))
+          .then((result) => completeRestoreBackupTask(payload, taskId, result))
           .catch(async (error) => {
             await failBackupTask(payload, taskId, error)
             payload.logger.error({ err: error, taskId, url }, '[backup-endpoint] Restore failed')

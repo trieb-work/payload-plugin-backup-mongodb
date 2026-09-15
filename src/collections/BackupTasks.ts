@@ -21,7 +21,7 @@ export const BackupTasksCollection: CollectionConfig = {
     {
       name: 'status',
       type: 'select',
-      options: ['queued', 'running', 'completed', 'failed'],
+      options: ['queued', 'running', 'completed', 'completed_with_warnings', 'failed'],
       required: true,
     },
     {
@@ -32,6 +32,13 @@ export const BackupTasksCollection: CollectionConfig = {
     {
       name: 'error',
       type: 'text',
+    },
+    {
+      name: 'warnings',
+      type: 'textarea',
+      admin: {
+        hidden: true,
+      },
     },
     {
       name: 'pollSecret',
