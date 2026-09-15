@@ -7,7 +7,12 @@ vi.mock('next/server', () => ({
 }))
 
 vi.mock('../../src/core/restore', () => ({
-  restoreBackup: vi.fn(async () => undefined),
+  restoreBackup: vi.fn(async () => ({
+    archiveKind: 'json' as const,
+    collections: [],
+    durationMs: 1,
+    media: null,
+  })),
 }))
 
 vi.mock('../../src/core/backupSettings', async (importOriginal) => {
@@ -26,7 +31,7 @@ vi.mock('../../src/core/backupSettings', async (importOriginal) => {
 })
 
 vi.mock('../../src/core/taskProgress', () => ({
-  completeBackupTask: vi.fn(async () => undefined),
+  completeRestoreBackupTask: vi.fn(async () => undefined),
   createBackupTask: vi.fn(async () => ({ pollSecret: 'secret-hex', taskId: 'task-7' })),
   failBackupTask: vi.fn(async () => undefined),
 }))
@@ -162,5 +167,48 @@ describe('POST /backup-mongodb/admin/restore', () => {
     const blacklist = call[2] as string[]
     expect(blacklist.filter((n) => n === 'backup-tasks')).toHaveLength(1)
     expect(blacklist).toContain('users')
+  })
+
+  it('does not pass backupRead when BACKUP_STORAGE=s3 even if a blob token exists', async () => {
+    const prevStorage = process.env.BACKUP_STORAGE
+    const prevBucket = process.env.BACKUP_S3_BUCKET
+    const prevRegion = process.env.BACKUP_S3_REGION
+    process.env.BACKUP_STORAGE = 's3'
+    process.env.BACKUP_S3_BUCKET = 'test-bucket'
+    process.env.BACKUP_S3_REGION = 'us-east-1'
+    process.env.BLOB_READ_WRITE_TOKEN = 'leftover-blob-token'
+    try {
+      const ep = createAdminRestoreEndpoint({})
+      await ep.handler(
+        makeMockRequest(makeMockPayload(), {
+          body: {
+            pathname: 'backups/manual---db---host---1.json',
+            url: 'https://minio.example/backups/manual.json',
+          },
+          user: adminUser,
+        }),
+      )
+      const options = vi.mocked(restoreBackup).mock.calls.at(-1)?.[5] as
+        | { archivePathname?: string; backupRead?: unknown }
+        | undefined
+      expect(options?.backupRead).toBeUndefined()
+      expect(options?.archivePathname).toBe('backups/manual---db---host---1.json')
+    } finally {
+      if (prevStorage === undefined) {
+        delete process.env.BACKUP_STORAGE
+      } else {
+        process.env.BACKUP_STORAGE = prevStorage
+      }
+      if (prevBucket === undefined) {
+        delete process.env.BACKUP_S3_BUCKET
+      } else {
+        process.env.BACKUP_S3_BUCKET = prevBucket
+      }
+      if (prevRegion === undefined) {
+        delete process.env.BACKUP_S3_REGION
+      } else {
+        process.env.BACKUP_S3_REGION = prevRegion
+      }
+    }
   })
 })

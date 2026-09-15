@@ -10,6 +10,7 @@ import {
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
 } from '../../core/backupSettings'
+import { isBackupStorageConfigured } from '../../core/storage'
 import { requireCronBearer } from '../shared'
 
 export function createCronRunEndpoint(options: BackupPluginOptions): Endpoint {
@@ -24,7 +25,7 @@ export function createCronRunEndpoint(options: BackupPluginOptions): Endpoint {
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
       const blobAccess = resolveBackupBlobAccess(settings)
-      if (!blobToken) {
+      if (!isBackupStorageConfigured(blobToken)) {
         return new Response('Service unavailable', { status: 503 })
       }
       payload.logger.info('[backup-endpoint] Cron backup request accepted')

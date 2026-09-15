@@ -3,7 +3,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { MongoDb } from '../../src/core/db.js'
 
+import { resolveTarGzip } from '../../src/core/archive.js'
+import { COLLECTION_FILE_NAME } from '../../src/core/backup.js'
+import { putBackupBlobContent } from '../../src/core/backupBlobIO.js'
 import { restoreBackup } from '../../src/core/restore.js'
+import { restoreTaskStatus } from '../../src/core/restoreResult.js'
+
+vi.mock('../../src/core/archive.js', () => ({
+  resolveTarGzip: vi.fn(),
+}))
+
+vi.mock('../../src/core/backupBlobIO.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/core/backupBlobIO.js')>()
+  return {
+    ...actual,
+    putBackupBlobContent: vi.fn(),
+  }
+})
 
 vi.mock('@vercel/blob', () => ({
   put: vi.fn(),
@@ -153,5 +169,58 @@ describe('restoreBackup', () => {
     await expect(restoreBackup(mockPayload, 'https://blob.com/backup.xml')).rejects.toThrow(
       'not supported',
     )
+  })
+
+  it('continues restoring collections when individual media uploads fail', async () => {
+    const url = 'https://blob.com/backup.tar.gz'
+    global.fetch = vi.fn().mockResolvedValue({
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+      ok: true,
+      status: 200,
+    }) as any
+
+    vi.mocked(resolveTarGzip).mockResolvedValueOnce([
+      {
+        name: COLLECTION_FILE_NAME,
+        content: Buffer.from(EJSON.stringify({ pages: [{ _id: 'p1', title: 'Home' }] })),
+      },
+      { name: 'ok.png', content: Buffer.from('ok') },
+      { name: 'bad.png', content: Buffer.from('bad') },
+    ])
+
+    vi.mocked(putBackupBlobContent)
+      .mockResolvedValueOnce('public')
+      .mockRejectedValueOnce(new Error('blob upload failed'))
+
+    await restoreBackup(mockPayload, url)
+
+    expect(mockCollection.bulkWrite).toHaveBeenCalledOnce()
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      { err: expect.any(Error), filename: 'bad.png' },
+      expect.stringMatching(/Failed to upload media file/i),
+    )
+  })
+
+  it('returns completed_with_warnings when some media uploads fail', async () => {
+    const url = 'https://blob.com/backup.tar.gz'
+    global.fetch = vi.fn().mockResolvedValue({
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+      ok: true,
+      status: 200,
+    }) as any
+
+    vi.mocked(resolveTarGzip).mockResolvedValueOnce([
+      {
+        name: COLLECTION_FILE_NAME,
+        content: Buffer.from(EJSON.stringify({ pages: [{ _id: 'p1', title: 'Home' }] })),
+      },
+      { name: 'bad.png', content: Buffer.from('bad') },
+    ])
+    vi.mocked(putBackupBlobContent).mockRejectedValueOnce(new Error('blob upload failed'))
+
+    const result = await restoreBackup(mockPayload, url)
+
+    expect(result.media?.failed).toEqual([{ name: 'bad.png', error: 'blob upload failed' }])
+    expect(restoreTaskStatus(result)).toBe('completed_with_warnings')
   })
 })

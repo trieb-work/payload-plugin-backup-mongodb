@@ -9,7 +9,6 @@ export const backupPluginPublicApiPaths = {
   adminManual: '/api/backup-mongodb/admin/manual',
   adminRestore: '/api/backup-mongodb/admin/restore',
   adminRestorePreview: '/api/backup-mongodb/admin/restore-preview',
-  adminSeed: '/api/backup-mongodb/admin/seed',
   adminSettings: '/api/backup-mongodb/admin/settings',
   adminTask: (id: string) => `/api/backup-mongodb/admin/task/${encodeURIComponent(id)}`,
   adminValidateBlobToken: '/api/backup-mongodb/admin/validate-blob-token',

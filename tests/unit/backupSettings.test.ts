@@ -161,4 +161,23 @@ describe('resolveBackupArchiveRead', () => {
       token: 'dedicated',
     })
   })
+
+  it('returns undefined when BACKUP_STORAGE=s3 even if a blob token is configured', () => {
+    const prev = process.env.BACKUP_STORAGE
+    process.env.BACKUP_STORAGE = 's3'
+    try {
+      expect(
+        resolveBackupArchiveRead(
+          { ...baseSettings, backupBlobReadWriteToken: 'dedicated' },
+          'backups/manual---db---host---1-1700000000000.json',
+        ),
+      ).toBeUndefined()
+    } finally {
+      if (prev === undefined) {
+        delete process.env.BACKUP_STORAGE
+      } else {
+        process.env.BACKUP_STORAGE = prev
+      }
+    }
+  })
 })

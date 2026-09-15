@@ -6,9 +6,11 @@ import {
   getResolvedCronBackupSettings,
   resolveBackupArchiveRead,
   resolveBackupBlobAccess,
+  resolveBackupBlobToken,
 } from '../../core/backupSettings'
 import { getBackupSourcePreviewForManual } from '../../core/backupSourcePreview'
 import { getRestorePreviewForAdminRestore } from '../../core/restorePreview'
+import { getBackupStorageKind } from '../../core/storage'
 import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
 
 /**
@@ -67,16 +69,26 @@ export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpo
 
         const settings = await getResolvedCronBackupSettings(payload)
         const backupRead = resolveBackupArchiveRead(settings, body?.pathname)
-        if (resolveBackupBlobAccess(settings) === 'private' && !backupRead) {
+        const blobAccess = resolveBackupBlobAccess(settings)
+        const blobToken = resolveBackupBlobToken(settings)
+        if (getBackupStorageKind() === 'vercel-blob' && blobAccess === 'private' && !backupRead) {
           return jsonError('Missing pathname (required for dedicated backup blob store)', 400)
         }
+
+        const archivePathname =
+          typeof body?.pathname === 'string' && body.pathname.startsWith('backups/') ?
+            body.pathname
+          : undefined
 
         const locale = typeof body?.locale === 'string' ? body.locale : undefined
         const preferredLocales = locale ? [locale, 'de', 'en'] : ['de', 'en']
 
         try {
           const preview = await getRestorePreviewForAdminRestore(payload, url, {
+            archivePathname,
             backupRead: backupRead ?? undefined,
+            blobAccess,
+            blobToken,
             preferredLocales,
           })
           return Response.json(preview)

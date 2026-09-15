@@ -17,11 +17,29 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Start MinIO (S3-compatible backend for live tests)
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            quay.io/minio/minio@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2 server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9000/minio/health/live; then
+              echo "MinIO is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs minio
+          exit 1
 
       - name: Install pnpm
         uses: pnpm/action-setup@v5
@@ -51,6 +69,19 @@ jobs:
 
       - name: Test (with coverage)
         run: pnpm run test:int:cov
+
+      - name: Test S3 against live MinIO
+        env:
+          BACKUP_STORAGE: s3
+          BACKUP_S3_BUCKET: payload-backups-ci
+          BACKUP_S3_ENDPOINT: http://127.0.0.1:9000
+          BACKUP_S3_ACCESS_KEY_ID: minioadmin
+          BACKUP_S3_SECRET_ACCESS_KEY: minioadmin
+          BACKUP_S3_FORCE_PATH_STYLE: "true"
+          BACKUP_S3_REGION: us-east-1
+        run: |
+          node ./scripts/ci-minio-setup.mjs
+          pnpm run test:int:minio
 
       - name: Code coverage comments
         if: github.event_name == 'pull_request'

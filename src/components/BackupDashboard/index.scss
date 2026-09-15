@@ -695,13 +695,33 @@
 .backup-task-status-slot {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: base(0.3);
+
+  .backup-task-status__details {
+    display: flex;
+    flex-direction: column;
+    gap: base(0.15);
+    min-width: 0;
+  }
 
   .backup-task-status__message {
     font-size: 12px;
     line-height: 1.4;
     color: var(--theme-elevation-700);
+  }
+
+  .backup-task-status__warnings {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--theme-warning-600, #b7791f);
+    white-space: pre-wrap;
+  }
+
+  .backup-task-status__error {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--theme-error-500, #c0392b);
   }
 }
 

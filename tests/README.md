@@ -67,6 +67,19 @@ off as they are implemented.
 - [x] `validateBackupBlobToken` probes the store, detects public vs private,
       cleans up probe blob, rejects empty tokens + non-access errors.
 
+### S3 storage adapter (unit + integration)
+
+- [x] `getBackupStorageKind` / `loadS3Config` / `isS3Configured` env resolution
+      (`tests/unit/storageConfig.test.ts`).
+- [x] `S3BackupStorage` put/list/read/del/prefix/pagination/validate with mocked
+      AWS SDK (`tests/integration/s3Storage.test.ts`).
+- [x] S3 independence — no `@vercel/blob` calls when `BACKUP_STORAGE=s3`
+      (`tests/integration/s3Independence.test.ts`).
+- [x] Live MinIO roundtrip — adapter CRUD + `createBackup` / `listBackups` /
+      `restoreBackup` against a real S3-compatible endpoint when
+      `BACKUP_S3_ENDPOINT` is set (`tests/integration/s3MinioLive.test.ts`; runs
+      in CI with MinIO).
+
 ### Cron / external endpoints (integration)
 
 - [x] Cron routes are registered under `/backup-mongodb/cron/*` with the right
@@ -195,6 +208,15 @@ set):
       tidy. Skips when either `BLOB_READ_WRITE_TOKEN` or `CRON_SECRET` is
       missing. _(new — `tests/e2e/cron-trigger.spec.ts`)_
 
+Env-gated S3 roundtrip coverage (runs in the dedicated `e2e-s3` CI job with
+MinIO):
+
+- [x] **P1** — Full manual backup create → restore roundtrip through the UI with
+      `BACKUP_STORAGE=s3` and a live MinIO backend: dashboard shows the `AWS S3`
+      storage pill (no Vercel token setup hint), then exercises create / restore
+      / delete like the Vercel roundtrip spec. Skips when S3 env is absent.
+      _(new — `tests/e2e/backup-create-restore-s3.spec.ts`)_
+
 Still deferred (needs a real or mocked blob endpoint):
 
 - [ ] **P2** — Settings modal: re-validate a freshly typed token and see the 422
@@ -251,13 +273,6 @@ Still deferred (needs a real or mocked blob endpoint):
       happy-path short-circuit is covered; the async enqueue can be a
       follow-up.)_
 
-### Admin seed endpoint (integration)
-
-- [ ] **P2** — `POST /admin/seed` is only registered when `seedDemoDumpUrl` is
-      set, returns 503 without blob env, and otherwise queues
-      `restoreSeedMedia` + `restoreBackup`. _(follow-up; coverage today is only
-      that the endpoint is conditionally registered.)_
-
 ### Admin backup-download endpoint (integration)
 
 - [ ] **P2** — `GET /admin/backup-download` requires auth, validates that
@@ -294,6 +309,9 @@ pnpm test:int
 
 # with coverage
 pnpm test:int:cov
+
+# live MinIO / S3-compatible integration (needs BACKUP_S3_* env + running MinIO)
+pnpm test:int:minio
 
 # end-to-end (starts dev server via playwright.config.ts)
 pnpm test:e2e

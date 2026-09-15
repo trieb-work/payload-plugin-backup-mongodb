@@ -10,6 +10,7 @@ import {
   resolveBackupBlobAccess,
   resolveBackupBlobToken,
 } from '../../core/backupSettings'
+import { isBackupStorageConfigured } from '../../core/storage'
 import { completeBackupTask, createBackupTask, failBackupTask } from '../../core/taskProgress'
 import { sanitizeBackupLabel } from '../../utils/index'
 import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
@@ -26,7 +27,7 @@ export function createAdminManualEndpoint(options: BackupPluginOptions): Endpoin
       const settings = await getResolvedCronBackupSettings(payload)
       const blobToken = resolveBackupBlobToken(settings)
       const blobAccess = resolveBackupBlobAccess(settings)
-      if (!blobToken) {
+      if (!isBackupStorageConfigured(blobToken)) {
         return jsonError('Service unavailable', 503)
       }
 

@@ -471,7 +471,7 @@ export const RestoreBackupDialog: React.FC<RestoreBackupDialogProps> = ({
           <TaskActionButton
             body={restoreBody}
             buttonStyle="error"
-            completeLabel="Restore started"
+            completeLabel="Restore finished"
             dangerConfirm={{
               body: 'You have selected Users, Roles, and/or Payload preferences. Restoring these collections replaces login accounts, role definitions, and/or UI session data. You can be locked out until you sign in again with the restored credentials. After a successful restore you will be signed out automatically.',
               cancelLabel: 'Go back',

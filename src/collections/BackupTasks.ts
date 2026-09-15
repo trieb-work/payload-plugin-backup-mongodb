@@ -15,13 +15,13 @@ export const BackupTasksCollection: CollectionConfig = {
     {
       name: 'kind',
       type: 'select',
-      options: ['backup', 'restore', 'seed', 'delete', 'blobTransfer'],
+      options: ['backup', 'restore', 'delete', 'blobTransfer'],
       required: true,
     },
     {
       name: 'status',
       type: 'select',
-      options: ['queued', 'running', 'completed', 'failed'],
+      options: ['queued', 'running', 'completed', 'completed_with_warnings', 'failed'],
       required: true,
     },
     {
@@ -32,6 +32,13 @@ export const BackupTasksCollection: CollectionConfig = {
     {
       name: 'error',
       type: 'text',
+    },
+    {
+      name: 'warnings',
+      type: 'textarea',
+      admin: {
+        hidden: true,
+      },
     },
     {
       name: 'pollSecret',

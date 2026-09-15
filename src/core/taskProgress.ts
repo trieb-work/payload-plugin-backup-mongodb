@@ -2,8 +2,17 @@ import type { Payload } from 'payload'
 
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
-export type BackupTaskKind = 'backup' | 'blobTransfer' | 'delete' | 'restore' | 'seed'
-export type BackupTaskStatus = 'completed' | 'failed' | 'queued' | 'running'
+import type { RestoreBackupResult } from './restoreResult'
+
+import { buildRestoreWarnings, formatRestoreSummary, restoreTaskStatus } from './restoreResult'
+
+export type BackupTaskKind = 'backup' | 'blobTransfer' | 'delete' | 'restore'
+export type BackupTaskStatus =
+  | 'completed'
+  | 'completed_with_warnings'
+  | 'failed'
+  | 'queued'
+  | 'running'
 
 export type BackupTaskProgress = {
   createdAt: string
@@ -13,6 +22,7 @@ export type BackupTaskProgress = {
   message: string
   status: BackupTaskStatus
   updatedAt: string
+  warnings?: null | string
 }
 
 /** Task row as stored / returned from Payload (includes server-only poll secret). */
@@ -70,7 +80,7 @@ export async function getBackupTask(
 export async function updateBackupTask(
   payload: Payload,
   id: string,
-  patch: Partial<Pick<BackupTaskProgress, 'error' | 'message' | 'status'>>,
+  patch: Partial<Pick<BackupTaskProgress, 'error' | 'message' | 'status' | 'warnings'>>,
 ): Promise<BackupTaskProgress | undefined> {
   try {
     const doc = await payload.update({
@@ -89,8 +99,25 @@ export async function completeBackupTask(
   payload: Payload,
   id: string,
   message: string,
+  options?: { status?: 'completed' | 'completed_with_warnings'; warnings?: string },
 ): Promise<BackupTaskProgress | undefined> {
-  return updateBackupTask(payload, id, { message, status: 'completed' })
+  return updateBackupTask(payload, id, {
+    message,
+    status: options?.status ?? 'completed',
+    warnings: options?.warnings ?? null,
+  })
+}
+
+export async function completeRestoreBackupTask(
+  payload: Payload,
+  id: string,
+  result: RestoreBackupResult,
+): Promise<BackupTaskProgress | undefined> {
+  const warnings = buildRestoreWarnings(result)
+  return completeBackupTask(payload, id, formatRestoreSummary(result), {
+    status: restoreTaskStatus(result),
+    warnings: warnings.length > 0 ? warnings.join('\n') : undefined,
+  })
 }
 
 export async function failBackupTask(

@@ -12,6 +12,14 @@ vi.mock('@vercel/blob', () => ({
   put: vi.fn(),
 }))
 
+vi.mock('../../src/core/backupBlobIO', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/core/backupBlobIO.js')>()
+  return {
+    ...actual,
+    readBackupBlobContentFlexible: vi.fn(async () => Buffer.from('fake-image-data')),
+  }
+})
+
 vi.mock('bson', () => ({
   EJSON: {
     parse: vi.fn((data) => JSON.parse(data)),
@@ -20,6 +28,8 @@ vi.mock('bson', () => ({
 }))
 
 import { del, list, put } from '@vercel/blob'
+
+import { readBackupBlobContentFlexible } from '../../src/core/backupBlobIO.js'
 
 const mockDb: MongoDb = {
   collection: vi.fn().mockReturnValue({
@@ -214,9 +224,10 @@ describe('createBackup', () => {
 describe('createMediaBackupFile', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.BLOB_READ_WRITE_TOKEN = 'media-test-token'
   })
 
-  it('creates a tar.gz archive containing collections and media files', async () => {
+  it('creates a tar.gz archive containing collections and media files from blob storage', async () => {
     const mockBlobFile = {
       downloadUrl: 'https://blob.com/image.png?download=1',
       etag: '"img"',
@@ -227,15 +238,15 @@ describe('createMediaBackupFile', () => {
     }
     vi.mocked(list).mockResolvedValue({ blobs: [mockBlobFile], cursor: undefined, hasMore: false })
 
-    global.fetch = vi.fn().mockResolvedValue({
-      arrayBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image-data').buffer),
-      ok: true,
-      status: 200,
-    }) as any
-
     const mediaCollection = [{ filename: 'image.png' }]
-    const result = await createMediaBackupFile('{"pages":[]}', mediaCollection)
+    const result = await createMediaBackupFile('{"pages":[]}', mediaCollection, 'backup-token')
 
+    expect(list).toHaveBeenCalledWith({
+      limit: 2,
+      prefix: 'image.png',
+      token: 'media-test-token',
+    })
+    expect(readBackupBlobContentFlexible).toHaveBeenCalledOnce()
     expect(result).toBeInstanceOf(Buffer)
     expect(result[0]).toBe(0x1f)
     expect(result[1]).toBe(0x8b)
@@ -259,6 +270,47 @@ describe('createMediaBackupFile', () => {
     expect(warn).toHaveBeenCalledWith(
       { filename: 'missing.png' },
       expect.stringMatching(/not in blob storage/i),
+    )
+    expect(result).toBeInstanceOf(Buffer)
+  })
+
+  it('isolates failures per media file', async () => {
+    vi.mocked(list).mockImplementation(async (options) => {
+      if (options?.prefix === 'ok.png') {
+        return {
+          blobs: [
+            {
+              downloadUrl: 'https://blob.com/ok.png',
+              etag: '"ok"',
+              pathname: 'ok.png',
+              size: 1,
+              uploadedAt: new Date(),
+              url: 'https://blob.com/ok.png',
+            },
+          ],
+          cursor: undefined,
+          hasMore: false,
+        }
+      }
+      return { blobs: [], cursor: undefined, hasMore: false }
+    })
+    vi.mocked(readBackupBlobContentFlexible).mockRejectedValueOnce(new Error('network error'))
+    const warn = vi.fn()
+    const mockPayload = {
+      logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn },
+    } as unknown as Payload
+
+    const result = await createMediaBackupFile(
+      '{}',
+      [{ filename: 'ok.png' }],
+      undefined,
+      undefined,
+      mockPayload,
+    )
+
+    expect(warn).toHaveBeenCalledWith(
+      { err: expect.any(Error), filename: 'ok.png' },
+      expect.stringMatching(/Failed to read media file from blob storage/i),
     )
     expect(result).toBeInstanceOf(Buffer)
   })

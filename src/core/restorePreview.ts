@@ -4,7 +4,8 @@ import { EJSON } from 'bson'
 
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import { readBackupBlobContentFlexible } from './backupBlobIO'
+import { readBackupArchiveBytes, resolveArchiveFileReference } from './backupArchiveRead'
+import { type BackupBlobAccessLevel } from './backupBlobIO'
 
 /** Mongo collection names that invalidate the current admin session when replaced. */
 const AUTH_SESSION_MONGO_NAMES = new Set(['payload-preferences', 'roles', 'sessions', 'users'])
@@ -147,32 +148,33 @@ function buildDisplayTitle(
 
 export async function loadRestoreBackupIndex(
   downloadUrl: string,
-  readAuth?: { pathname: string; token: string },
+  options: {
+    archivePathname?: string
+    blobAccess?: BackupBlobAccessLevel
+    blobToken?: string
+    readAuth?: { pathname: string; token: string }
+  } = {},
 ): Promise<{
   byName: Record<string, unknown[]>
   fileKind: RestorePreviewFileKind
   mediaBlobCount: number
 }> {
-  const urlBase = downloadUrl.split('?')?.[0]
-  const bytes =
-    readAuth ?
-      await readBackupBlobContentFlexible(readAuth.pathname, downloadUrl, readAuth.token)
-    : await (async () => {
-        const res = await fetch(downloadUrl)
-        if (!res.ok) {
-          throw new Error(`Failed to download backup (${res.status})`)
-        }
-        return Buffer.from(await res.arrayBuffer())
-      })()
+  const archiveRef = resolveArchiveFileReference(downloadUrl, options.archivePathname)
+  const bytes = await readBackupArchiveBytes(downloadUrl, {
+    archivePathname: options.archivePathname,
+    backupRead: options.readAuth,
+    blobAccess: options.blobAccess,
+    blobToken: options.blobToken,
+  })
 
   let byName: Record<string, unknown[]> = {}
   let mediaBlobCount = 0
   let fileKind: RestorePreviewFileKind
 
-  if (urlBase?.endsWith('.json')) {
+  if (archiveRef.endsWith('.json')) {
     fileKind = 'json'
     byName = EJSON.parse(bytes.toString('utf8')) as Record<string, unknown[]>
-  } else if (urlBase?.endsWith('.gz')) {
+  } else if (archiveRef.endsWith('.gz')) {
     fileKind = 'tar-gzip'
     const files = await resolveTarGzip(bytes)
     byName = EJSON.parse(
@@ -336,10 +338,18 @@ export async function getRestorePreviewForAdminRestore(
   payload: Payload,
   downloadUrl: string,
   options: {
+    archivePathname?: string
     backupRead?: { pathname: string; token: string }
+    blobAccess?: BackupBlobAccessLevel
+    blobToken?: string
     preferredLocales?: string[]
   } = {},
 ): Promise<RestorePreviewResponse> {
-  const parsed = await loadRestoreBackupIndex(downloadUrl, options.backupRead)
+  const parsed = await loadRestoreBackupIndex(downloadUrl, {
+    archivePathname: options.archivePathname,
+    blobAccess: options.blobAccess,
+    blobToken: options.blobToken,
+    readAuth: options.backupRead,
+  })
   return buildRestorePreviewGroups(payload, parsed, options)
 }

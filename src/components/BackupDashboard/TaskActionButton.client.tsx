@@ -30,7 +30,7 @@ type TaskActionButtonProps = {
   idleDisabled?: boolean
   idleLabel: string
   kind: BackupTaskProgress['kind']
-  /** Invoked once when the task reaches `completed` (after optional `refreshOnComplete`). Not called when `redirectOnComplete` is set. */
+  /** Invoked once when the task reaches a successful terminal state (`completed` or `completed_with_warnings`). */
   onComplete?: () => void
   pendingLabel: string
   redirectOnComplete?: string
@@ -64,14 +64,21 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
   const [task, setTask] = useState<BackupTaskProgress | null>(null)
 
   const isBusy = isStarting || task?.status === 'queued' || task?.status === 'running'
-  const message = error || task?.error || task?.message || ''
+  const isDoneWithWarnings = task?.status === 'completed_with_warnings'
+  const message = error || task?.message || ''
+  const warnings = !error && task?.warnings ? task.warnings : ''
+
+  const isTerminal =
+    task?.status === 'completed' ||
+    task?.status === 'completed_with_warnings' ||
+    task?.status === 'failed'
 
   const label = useMemo(() => {
     if (isBusy) {
       return pendingLabel
     }
 
-    if (task?.status === 'completed' && completeLabel) {
+    if (task?.status === 'completed' || task?.status === 'completed_with_warnings') {
       return completeLabel
     }
 
@@ -83,6 +90,10 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
       return 'error' as const
     }
 
+    if (isDoneWithWarnings) {
+      return 'warning' as const
+    }
+
     if (task?.status === 'completed') {
       return 'success' as const
     }
@@ -92,11 +103,15 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
     }
 
     return 'light-gray' as const
-  }, [error, isBusy, task?.status])
+  }, [error, isBusy, isDoneWithWarnings, task?.status])
 
   const statusLabel = useMemo(() => {
     if (error || task?.status === 'failed') {
       return 'Failed'
+    }
+
+    if (isDoneWithWarnings) {
+      return 'Done with warnings'
     }
 
     if (task?.status === 'completed') {
@@ -108,7 +123,7 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
     }
 
     return 'Idle'
-  }, [error, isBusy, task?.status])
+  }, [error, isBusy, isDoneWithWarnings, task?.status])
 
   useEffect(() => {
     return () => {
@@ -119,27 +134,41 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
   }, [])
 
   useEffect(() => {
-    if (!task?.id || task.status === 'completed' || task.status === 'failed') {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
+    if (!task?.id || !isTerminal) {
+      return
+    }
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+
+    if (task.status === 'completed' || task.status === 'completed_with_warnings') {
+      if (redirectOnComplete) {
+        window.location.assign(redirectOnComplete)
+        return
       }
 
-      if (task?.status === 'completed') {
-        if (redirectOnComplete) {
-          window.location.assign(redirectOnComplete)
-          return
+      if (completeNotifyForTaskIdRef.current !== task.id) {
+        completeNotifyForTaskIdRef.current = task.id
+        if (refreshOnComplete) {
+          router.refresh()
         }
-
-        if (completeNotifyForTaskIdRef.current !== task.id) {
-          completeNotifyForTaskIdRef.current = task.id
-          if (refreshOnComplete) {
-            router.refresh()
-          }
-          onComplete?.()
-        }
+        onComplete?.()
       }
+    }
+  }, [
+    isTerminal,
+    onComplete,
+    redirectOnComplete,
+    refreshOnComplete,
+    router,
+    task?.id,
+    task?.status,
+  ])
 
+  useEffect(() => {
+    if (!task?.id || isTerminal) {
       return
     }
 
@@ -168,7 +197,7 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
         intervalRef.current = null
       }
     }
-  }, [onComplete, redirectOnComplete, refreshOnComplete, router, task?.id, task?.status])
+  }, [isTerminal, task?.id])
 
   const runTask = async () => {
     try {
@@ -240,7 +269,17 @@ export const TaskActionButton: React.FC<TaskActionButtonProps> = ({
             <Pill pillStyle={pillStyle} size="small">
               {statusLabel}
             </Pill>
-            <span className="backup-task-status__message">{message}</span>
+            <div className="backup-task-status__details">
+              {message ?
+                <span className="backup-task-status__message">{message}</span>
+              : null}
+              {warnings ?
+                <span className="backup-task-status__warnings">{warnings}</span>
+              : null}
+              {task?.error && task.status === 'failed' ?
+                <span className="backup-task-status__error">{task.error}</span>
+              : null}
+            </div>
           </div>
         )}
       </div>

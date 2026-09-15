@@ -13,9 +13,4 @@ export type BackupPluginOptions = {
   backupsToKeep?: number
   /** Enable/disable the plugin entirely. Default: true */
   enabled?: boolean
-  /**
-   * When set, registers POST {@code /api/backup-mongodb/admin/seed} (demo DB + media seed).
-   * Omit to disable the seed endpoint entirely.
-   */
-  seedDemoDumpUrl?: string
 }

@@ -1,5 +1,7 @@
 import type { Payload } from 'payload'
 
+import { getBackupStorageKind } from './storage/config'
+
 export const BACKUP_SETTINGS_SLUG = 'backup-settings'
 
 export interface ResolvedCronBackupSettings {
@@ -116,6 +118,10 @@ export function resolveBackupArchiveRead(
   settings: ResolvedCronBackupSettings,
   pathname: unknown,
 ): { pathname: string; token: string } | undefined {
+  // Vercel-specific authenticated archive reads — S3 restores load archives via pathname server-side.
+  if (getBackupStorageKind() !== 'vercel-blob') {
+    return undefined
+  }
   if (typeof pathname !== 'string' || !pathname.startsWith('backups/')) {
     return undefined
   }

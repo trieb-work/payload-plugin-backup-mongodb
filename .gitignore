@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
+.env*.local
+dev/.env
+# keep the committed templates
+!.env.example
+!dev/.env.example
 
 # vercel
 .vercel

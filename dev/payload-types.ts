@@ -156,10 +156,11 @@ export interface Media {
  */
 export interface BackupTask {
   id: string;
-  kind: 'backup' | 'restore' | 'seed' | 'delete' | 'blobTransfer';
-  status: 'queued' | 'running' | 'completed' | 'failed';
+  kind: 'backup' | 'restore' | 'delete' | 'blobTransfer';
+  status: 'queued' | 'running' | 'completed' | 'completed_with_warnings' | 'failed';
   message: string;
   error?: string | null;
+  warnings?: string | null;
   pollSecret?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -340,6 +341,7 @@ export interface BackupTasksSelect<T extends boolean = true> {
   status?: T;
   message?: T;
   error?: T;
+  warnings?: T;
   pollSecret?: T;
   updatedAt?: T;
   createdAt?: T;

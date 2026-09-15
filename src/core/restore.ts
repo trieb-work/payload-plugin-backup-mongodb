@@ -1,20 +1,26 @@
 import type { Payload } from 'payload'
 
 import { EJSON } from 'bson'
-import fs from 'node:fs/promises'
-import path from 'node:path'
+
+import type {
+  RestoreArchiveKind,
+  RestoreBackupResult,
+  RestoreCollectionOutcome,
+  RestoreMediaOutcome,
+} from './restoreResult'
 
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import {
-  type BackupBlobAccessLevel,
-  putBackupBlobContent,
-  readBackupBlobContentFlexible,
-} from './backupBlobIO'
+import { readBackupArchiveBytes, resolveArchiveFileReference } from './backupArchiveRead'
+import { type BackupBlobAccessLevel, putBackupBlobContent } from './backupBlobIO'
 import { getDb } from './db'
 import { updateBackupTask } from './taskProgress'
 
+export type { RestoreBackupResult } from './restoreResult'
+
 export interface RestoreBackupOptions {
+  /** When set with S3, the archive is read server-side and list URLs may be stale. */
+  archivePathname?: string
   /**
    * When set, the archive is loaded with the backup token (fetch + SDK fallback; works for
    * public and private blobs). Otherwise `downloadUrl` is fetched anonymously.
@@ -42,13 +48,17 @@ export async function restoreBackup(
   mergeData = false,
   taskId?: string,
   options?: RestoreBackupOptions,
-): Promise<void> {
+): Promise<RestoreBackupResult> {
   const restoreArchiveMedia = options?.restoreArchiveMedia !== false
   const blobToken = options?.blobToken
   const blobAccess: BackupBlobAccessLevel = options?.blobAccess ?? 'public'
   const backupRead = options?.backupRead
+  const archivePathname = options?.archivePathname
   const t0 = Date.now()
-  const urlBase = downloadUrl.split('?')?.[0]
+  const archiveRef = resolveArchiveFileReference(downloadUrl, archivePathname)
+  const collectionOutcomes: RestoreCollectionOutcome[] = []
+  let mediaOutcome: null | RestoreMediaOutcome = null
+  let archiveKind: RestoreArchiveKind
 
   // Progress is stored in `backup-tasks`. Restoring that collection from the file
   // would delete/replace the active task doc and break GET .../admin/task/:id polling.
@@ -58,7 +68,7 @@ export async function restoreBackup(
     : [...collectionBlacklist]
 
   payload.logger.info(
-    { blacklist: effectiveBlacklist, mergeData, url: urlBase },
+    { blacklist: effectiveBlacklist, mergeData, url: archiveRef },
     '[restore] Starting restore',
   )
   if (taskId) {
@@ -69,19 +79,16 @@ export async function restoreBackup(
   }
 
   const db = getDb(payload)
-  const archiveBytes =
-    backupRead ?
-      await readBackupBlobContentFlexible(backupRead.pathname, downloadUrl, backupRead.token)
-    : await (async () => {
-        const res = await fetch(downloadUrl)
-        if (!res.ok) {
-          throw new Error(`Failed to download backup (${res.status})`)
-        }
-        return Buffer.from(await res.arrayBuffer())
-      })()
+  const archiveBytes = await readBackupArchiveBytes(downloadUrl, {
+    archivePathname,
+    backupRead,
+    blobAccess,
+    blobToken,
+  })
   let collections: Record<string, Record<string, unknown>[]> = {}
 
-  if (urlBase?.endsWith('.json')) {
+  if (archiveRef.endsWith('.json')) {
+    archiveKind = 'json'
     payload.logger.info('[restore] Parsing JSON backup')
     if (taskId) {
       await updateBackupTask(payload, taskId, {
@@ -89,7 +96,8 @@ export async function restoreBackup(
       })
     }
     collections = EJSON.parse(archiveBytes.toString('utf8'))
-  } else if (urlBase?.endsWith('.gz')) {
+  } else if (archiveRef.endsWith('.gz')) {
+    archiveKind = 'tar-gzip'
     payload.logger.info('[restore] Extracting tar.gz backup')
     if (taskId) {
       await updateBackupTask(payload, taskId, {
@@ -102,40 +110,83 @@ export async function restoreBackup(
     )
     const medias =
       restoreArchiveMedia ? files.filter((file) => file.name !== COLLECTION_FILE_NAME) : []
+
+    mediaOutcome = {
+      accessFallbackCount: 0,
+      attempted: medias.length,
+      failed: [],
+      restored: 0,
+      skippedByOption: !restoreArchiveMedia,
+    }
+
     if (!restoreArchiveMedia) {
       payload.logger.info(
         '[restore] Skipping archive media blob upload (restoreArchiveMedia=false)',
       )
-    }
-    payload.logger.info({ count: medias.length }, '[restore] Restoring media files to blob storage')
-    if (taskId) {
-      await updateBackupTask(payload, taskId, {
-        message:
-          restoreArchiveMedia ?
-            `Restoring ${medias.length} media file${medias.length === 1 ? '' : 's'}`
-          : 'Skipped media files from archive',
-      })
-    }
-    const mediaResults = await Promise.all(
-      medias.map((media) =>
-        putBackupBlobContent(media.name, media.content, blobToken, blobAccess).then(
-          (effectiveAccess) => ({ name: media.name, effectiveAccess }),
-        ),
-      ),
-    )
-    const mismatched = mediaResults.filter((r) => r.effectiveAccess !== blobAccess)
-    if (mismatched.length > 0) {
-      payload.logger.warn(
-        { count: mismatched.length, preferredAccess: blobAccess },
-        '[restore] Blob store rejected preferred access level for media; uploaded with fallback',
+      if (taskId) {
+        await updateBackupTask(payload, taskId, {
+          message: 'Skipped media files from archive',
+        })
+      }
+    } else {
+      payload.logger.info(
+        { count: medias.length },
+        '[restore] Restoring media files to blob storage',
       )
-    }
-    mediaResults.forEach((result) => {
-      payload.logger.debug(
-        { name: result.name, access: result.effectiveAccess },
-        '[restore] Media file uploaded',
+      if (taskId) {
+        await updateBackupTask(payload, taskId, {
+          message: `Restoring ${medias.length} media file${medias.length === 1 ? '' : 's'}`,
+        })
+      }
+
+      const mediaResults = await Promise.all(
+        medias.map(async (media) => {
+          try {
+            const effectiveAccess = await putBackupBlobContent(
+              media.name,
+              media.content,
+              blobToken,
+              blobAccess,
+            )
+            return {
+              name: media.name,
+              effectiveAccess,
+              error: undefined as string | undefined,
+              ok: true as const,
+            }
+          } catch (err) {
+            const error = err instanceof Error ? err.message : String(err)
+            payload.logger.warn(
+              { err, filename: media.name },
+              '[restore] Failed to upload media file to blob storage',
+            )
+            return { name: media.name, error, ok: false as const }
+          }
+        }),
       )
-    })
+
+      for (const result of mediaResults) {
+        if (result.ok) {
+          mediaOutcome.restored += 1
+          if (result.effectiveAccess !== blobAccess) {
+            mediaOutcome.accessFallbackCount += 1
+          }
+          payload.logger.debug(
+            { name: result.name, access: result.effectiveAccess },
+            '[restore] Media file uploaded',
+          )
+        } else {
+          mediaOutcome.failed.push({ name: result.name, error: result.error })
+        }
+      }
+
+      if (mediaOutcome.accessFallbackCount > 0) {
+        payload.logger.warn(
+          { count: mediaOutcome.accessFallbackCount, preferredAccess: blobAccess },
+          '[restore] Blob store rejected preferred access level for media; uploaded with fallback',
+        )
+      }
+    }
   } else {
     throw new Error(`File type of backup ${downloadUrl} not supported`)
   }
@@ -157,14 +208,26 @@ export async function restoreBackup(
         { collection: collectionName },
         '[restore] Skipping blacklisted collection',
       )
+      collectionOutcomes.push({ name: collectionName, kind: 'skipped', reason: 'blacklist' })
       continue
     }
     const collectionData = collections[collectionName]
-    if (collectionData.length > 0) {
-      payload.logger.info(
-        { collection: collectionName, docs: collectionData.length, mergeData },
-        '[restore] Restoring collection',
-      )
+    if (collectionData.length === 0) {
+      collectionOutcomes.push({ name: collectionName, kind: 'skipped', reason: 'empty' })
+      continue
+    }
+
+    payload.logger.info(
+      { collection: collectionName, docs: collectionData.length, mergeData },
+      '[restore] Restoring collection',
+    )
+    if (taskId) {
+      await updateBackupTask(payload, taskId, {
+        message: `Restoring collection ${collectionName} (${collectionData.length} docs)`,
+      })
+    }
+
+    try {
       const collection = db.collection(collectionName)
       const indexes = await collection.indexes()
       const uniqueIndexes = indexes
@@ -172,11 +235,6 @@ export async function restoreBackup(
         .flatMap((idx) => Object.keys(idx.key))
       if (!mergeData) {
         await collection.deleteMany({})
-      }
-      if (taskId) {
-        await updateBackupTask(payload, taskId, {
-          message: `Restoring collection ${collectionName} (${collectionData.length} docs)`,
-        })
       }
       const res = await collection.bulkWrite(
         collectionData.map((doc) => ({
@@ -199,46 +257,29 @@ export async function restoreBackup(
         { collection: collectionName, modified: res.modifiedCount, upserted: res.upsertedCount },
         '[restore] Collection restored',
       )
-    }
-  }
-
-  payload.logger.info({ durationMs: Date.now() - t0 }, '[restore] Restore complete')
-}
-
-export async function restoreSeedMedia(payload: Payload, taskId?: string): Promise<string[]> {
-  const files = await fs.readdir(path.join(process.cwd(), 'public/seed/media'))
-  if (taskId) {
-    await updateBackupTask(payload, taskId, {
-      message: `Restoring ${files.length} seed media file${files.length === 1 ? '' : 's'}`,
-      status: 'running',
-    })
-  }
-  for (const file of files) {
-    const data = await fs.readFile(path.join(process.cwd(), 'public/seed/media', file))
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const effectiveAccess = await putBackupBlobContent(
-        file,
-        data,
-        process.env.BLOB_READ_WRITE_TOKEN,
-        'public',
-      )
-      payload.logger.info(
-        { access: effectiveAccess, file },
-        '[restore] Restored seed media to Vercel Blob storage',
-      )
-    } else {
-      const folderPath = path.join(process.cwd(), 'public/media')
-      const publicPath = path.join(folderPath, file)
-      await fs.mkdir(folderPath, { recursive: true })
-      await fs.writeFile(publicPath, data)
-      payload.logger.info({ file, publicPath }, '[restore] Restored seed media to public directory')
-    }
-    if (taskId) {
-      await updateBackupTask(payload, taskId, {
-        message: `Restored seed media file ${file}`,
+      collectionOutcomes.push({
+        name: collectionName,
+        docCount: collectionData.length,
+        kind: 'restored',
       })
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err)
+      payload.logger.error(
+        { collection: collectionName, err },
+        '[restore] Failed to restore collection',
+      )
+      collectionOutcomes.push({ name: collectionName, error, kind: 'failed' })
     }
   }
-  payload.logger.info({ count: files.length }, '[restore] Restored all seed media files')
-  return files
+
+  const durationMs = Date.now() - t0
+  const result: RestoreBackupResult = {
+    archiveKind,
+    collections: collectionOutcomes,
+    durationMs,
+    media: mediaOutcome,
+  }
+
+  payload.logger.info({ durationMs, result }, '[restore] Restore complete')
+  return result
 }
