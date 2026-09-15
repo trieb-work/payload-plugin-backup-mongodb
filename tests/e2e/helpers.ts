@@ -58,6 +58,15 @@ export function requireCronSecret(): string {
   return secret || ''
 }
 
+/** Env-gated guard for S3 / MinIO roundtrip tests (`BACKUP_STORAGE=s3` + endpoint). */
+export function requireS3Storage(): boolean {
+  return (
+    process.env.BACKUP_STORAGE?.toLowerCase() === 's3' &&
+    Boolean(process.env.BACKUP_S3_BUCKET?.trim()) &&
+    Boolean(process.env.BACKUP_S3_ENDPOINT?.trim())
+  )
+}
+
 /**
  * Waits for the `TaskActionButton` status slot inside a dialog to transition to `Done`.
  * The button also surfaces failures via a `Failed` pill — this helper throws with the

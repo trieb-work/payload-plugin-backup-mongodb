@@ -1,7 +1,8 @@
 import type { Payload } from 'payload'
 
-import { del, list } from '@vercel/blob'
 import { EJSON } from 'bson'
+
+import type { BackupStorageAdapter } from './storage/types'
 
 import {
   createBlobName,
@@ -10,13 +11,10 @@ import {
   sanitizeBackupLabel,
 } from '../utils/index'
 import { createTarGzip } from './archive'
-import {
-  type BackupBlobAccessLevel,
-  putBackupBlobContent,
-  readBackupBlobContentFlexible,
-} from './backupBlobIO'
+import { type BackupBlobAccessLevel } from './backupBlobIO'
 import { getResolvedCronBackupSettings, resolveBackupBlobToken } from './backupSettings'
 import { getDb } from './db'
+import { getBackupStorageKind, resolveBackupStorage } from './storage'
 import { updateBackupTask } from './taskProgress'
 
 export const COLLECTION_FILE_NAME = 'collections.json'
@@ -47,16 +45,15 @@ export async function listBackups(
     blobToken?: string
   } = {},
 ) {
-  const token = await resolveBackupListToken(payload, options.blobToken)
-  if (!token) {
-    return []
+  const kind = getBackupStorageKind()
+  if (kind === 'vercel-blob') {
+    const token = await resolveBackupListToken(payload, options.blobToken)
+    if (!token) {
+      return []
+    }
+    return resolveBackupStorage({ blobToken: token, kind }).list('backups/')
   }
-  const { blobs } = await list({
-    limit: 1000,
-    prefix: 'backups/',
-    token,
-  })
-  return blobs
+  return resolveBackupStorage({ kind }).list('backups/')
 }
 
 function resolveBlobToken(blobToken?: string): string | undefined {
@@ -67,38 +64,41 @@ function resolveBlobToken(blobToken?: string): string | undefined {
 }
 
 /**
- * @param mediaListToken Token for listing/fetching **Payload media** blobs (usually
- * `BLOB_READ_WRITE_TOKEN`). When omitted, uses env then falls back to `backupBlobToken`.
+ * Builds a tar.gz archive containing the collection dump plus any media files retrieved
+ * through the given storage adapter. The adapter abstracts Vercel Blob vs S3 so this
+ * function stays target-agnostic.
  */
 export async function createMediaBackupFile(
   collectionBackupFile: string,
   mediaCollection: { filename: string }[],
-  backupBlobToken?: string,
-  mediaListToken?: string,
+  storage: BackupStorageAdapter,
   payload?: Payload,
 ): Promise<Buffer> {
-  const envMedia = (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
-  const tokenForMedia =
-    resolveBlobToken(mediaListToken) ??
-    (envMedia.length > 0 ? envMedia : undefined) ??
-    resolveBlobToken(backupBlobToken)
   const mediaFiles = await Promise.all(
     mediaCollection.map(async (media) => {
-      const matchingFiles = await list({ limit: 2, prefix: media.filename, token: tokenForMedia })
-      const blob = matchingFiles.blobs.find((blob) => blob.pathname === media.filename)
-      if (!blob) {
+      try {
+        const matchingFiles = await storage.list(media.filename)
+        const blob = matchingFiles.find((blob) => blob.pathname === media.filename)
+        if (!blob) {
+          payload?.logger.warn(
+            { filename: media.filename },
+            '[backup] File was in collection but not in blob storage',
+          )
+          return undefined
+        }
+        const content = await storage.read({
+          downloadUrl: blob.downloadUrl,
+          pathname: blob.pathname,
+          url: blob.url,
+        })
+        return { name: media.filename, content }
+      } catch (err) {
         payload?.logger.warn(
-          { filename: media.filename },
-          '[backup] File was in collection but not in blob storage',
+          { err, filename: media.filename },
+          '[backup] Failed to read media file from storage',
         )
         return undefined
       }
-      const content = await readBackupBlobContentFlexible(
-        blob.pathname,
-        blob.downloadUrl,
-        tokenForMedia ?? '',
-      )
-      return { name: media.filename, content }
     }),
   )
   return await createTarGzip([
@@ -138,10 +138,10 @@ export async function createBackup(
   } = options
   const label = cron ? '' : sanitizeBackupLabel(options.label)
   const blobAccess: BackupBlobAccessLevel = options.blobAccess ?? 'public'
-  const envMedia = (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
   const token = resolveBlobToken(blobToken)
   const skip = new Set(skipCollections ?? [])
   const resolvedBackupsToKeep = backupsToKeep ?? (Number(process.env.BACKUPS_TO_KEEP) || 10)
+  const storage = resolveBackupStorage({ blobAccess, blobToken: token })
 
   const currentHostname = getCurrentHostname()
   const currentDbName = getCurrentDbName()
@@ -166,11 +166,7 @@ export async function createBackup(
   }
 
   if (cron) {
-    const { blobs } = await list({
-      limit: 1000,
-      prefix: 'backups/cron-',
-      token,
-    })
+    const blobs = await storage.list('backups/cron-')
     const sorted = blobs.sort(
       (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
     )
@@ -184,7 +180,7 @@ export async function createBackup(
       }
     }
     for (const blob of oldest) {
-      await del(blob.url, { token })
+      await storage.del({ pathname: blob.pathname, url: blob.url })
       payload.logger.info({ pathname: blob.pathname }, '[backup] Deleted old backup')
     }
   }
@@ -240,8 +236,7 @@ export async function createBackup(
       await createMediaBackupFile(
         collectionBackupFile,
         (allData?.['media'] as { filename: string }[] | undefined) || [],
-        token,
-        envMedia.length > 0 ? envMedia : undefined,
+        storage,
         payload,
       )
     : collectionBackupFile
@@ -261,13 +256,7 @@ export async function createBackup(
       message: 'Uploading backup to blob storage',
     })
   }
-  const effectiveAccess = await putBackupBlobContent(name, backupFile, token, blobAccess)
-  if (effectiveAccess !== blobAccess) {
-    payload.logger.warn(
-      { name, effectiveAccess, preferredAccess: blobAccess },
-      '[backup] Blob store rejected preferred access level; uploaded with fallback',
-    )
-  }
+  await storage.put(name, backupFile)
 
   payload.logger.info({ name, durationMs: Date.now() - t0 }, '[backup] Backup complete')
 }

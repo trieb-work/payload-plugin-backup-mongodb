@@ -35,7 +35,6 @@ vi.mock('../../src/core/backup', () => ({
 
 vi.mock('../../src/core/restore', () => ({
   restoreBackup: vi.fn(async () => undefined),
-  restoreSeedMedia: vi.fn(async () => []),
 }))
 
 vi.mock('../../src/core/taskProgress', async () => {

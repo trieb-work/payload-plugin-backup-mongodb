@@ -15,7 +15,7 @@ export const BackupTasksCollection: CollectionConfig = {
     {
       name: 'kind',
       type: 'select',
-      options: ['backup', 'restore', 'seed', 'delete', 'blobTransfer'],
+      options: ['backup', 'restore', 'delete', 'blobTransfer'],
       required: true,
     },
     {

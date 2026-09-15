@@ -4,6 +4,7 @@ import type { Payload } from 'payload'
 import type { BackupPluginOptions } from '../../types'
 
 import { listBackups, resolveBackupListToken } from '../../core/backup'
+import { getBackupStorageKind, isBackupStorageConfigured } from '../../core/storage'
 import {
   getBackupSortTimeMs,
   getCurrentDbName,
@@ -91,10 +92,11 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, pa
     )
   }
 
+  const storageKind = getBackupStorageKind()
   const backupBlobToken = await resolveBackupListToken(payload)
-  const hasBlobToken = backupBlobToken.trim().length > 0
+  const storageConfigured = isBackupStorageConfigured(backupBlobToken)
 
-  const blobs = hasBlobToken ? await listBackups(payload, { blobToken: backupBlobToken }) : []
+  const blobs = storageConfigured ? await listBackups(payload, { blobToken: backupBlobToken }) : []
   const sortedBlobs = [...blobs].sort((a, b) => {
     const ta = getBackupSortTimeMs(transformBlobName(a.pathname), new Date(a.uploadedAt))
     const tb = getBackupSortTimeMs(transformBlobName(b.pathname), new Date(b.uploadedAt))
@@ -125,7 +127,14 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, pa
           Backups <span className="experimental">(experimental)</span>
         </h2>
 
-        {!hasBlobToken && (
+        {!storageConfigured && storageKind === 's3' && (
+          <p className="backup-dashboard__setup-hint" role="status">
+            Set <code className="backup-dashboard__setup-hint-code">BACKUP_S3_BUCKET</code> (and
+            credentials) to enable the S3 backup target. Until then, the list stays empty and cron
+            or manual backups cannot run.
+          </p>
+        )}
+        {!storageConfigured && storageKind === 'vercel-blob' && (
           <p className="backup-dashboard__setup-hint" role="status">
             Add a Vercel Blob read/write token: set environment variable{' '}
             <code className="backup-dashboard__setup-hint-code">BLOB_READ_WRITE_TOKEN</code>, or
@@ -136,6 +145,10 @@ export const BackupDashboard: React.FC<BackupDashboardProps> = async ({ i18n, pa
 
         <div className="backup-dashboard__toolbar">
           <div className="backup-dashboard__toolbar-meta">
+            <span className="backup-dashboard__toolbar-pill">
+              <span className="backup-dashboard__toolbar-key">Storage</span>
+              {storageKind === 's3' ? 'AWS S3' : 'Vercel Blob'}
+            </span>
             <span className="backup-dashboard__toolbar-pill">
               <span className="backup-dashboard__toolbar-key">Total</span>
               {sortedBlobs.length} backup{sortedBlobs.length === 1 ? '' : 's'}

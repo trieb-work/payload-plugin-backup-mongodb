@@ -10,7 +10,7 @@ export { getBackupSourcePreviewForManual } from './core/backupSourcePreview'
 export type { BackupSourcePreviewResponse } from './core/backupSourcePreview'
 export { getDb } from './core/db'
 export type { MongoDb } from './core/db'
-export { restoreBackup, restoreSeedMedia } from './core/restore'
+export { restoreBackup } from './core/restore'
 export type { RestoreBackupOptions } from './core/restore'
 export {
   buildCollectionPreviewGroups,

@@ -156,7 +156,7 @@ export interface Media {
  */
 export interface BackupTask {
   id: string;
-  kind: 'backup' | 'restore' | 'seed' | 'delete' | 'blobTransfer';
+  kind: 'backup' | 'restore' | 'delete' | 'blobTransfer';
   status: 'queued' | 'running' | 'completed' | 'failed';
   message: string;
   error?: string | null;

@@ -95,3 +95,103 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  e2e-s3:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      CI: "true"
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: "1"
+      PAYLOAD_CONFIG_PATH: ./dev/payload.config.ts
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
+      DATABASE_URL: mongodb://127.0.0.1:27017/payload-plugin-e2e-s3
+      MONGODB_URI: mongodb://127.0.0.1:27017/payload-plugin-e2e-s3
+      PAYLOAD_SECRET: e2e-payload-secret-ci-s3
+      BACKUP_STORAGE: s3
+      BACKUP_S3_BUCKET: payload-backups-e2e
+      BACKUP_S3_ENDPOINT: http://127.0.0.1:9000
+      BACKUP_S3_ACCESS_KEY_ID: minioadmin
+      BACKUP_S3_SECRET_ACCESS_KEY: minioadmin
+      BACKUP_S3_FORCE_PATH_STYLE: "true"
+      BACKUP_S3_REGION: us-east-1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            quay.io/minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9000/minio/health/live; then
+              echo "MinIO is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs minio
+          exit 1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies (no install scripts)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild approved native deps
+        run: pnpm rebuild
+
+      - name: Prepare MinIO bucket
+        run: node ./scripts/ci-minio-setup.mjs
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Cache Next.js build (dev app)
+        uses: actions/cache@v5
+        with:
+          path: dev/.next/cache
+          key: ${{ runner.os }}-next-dev-s3-${{ hashFiles('pnpm-lock.yaml', 'dev/next.config.mjs', 'dev/app/**', 'dev/payload.config.ts', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-next-dev-s3-
+
+      - name: Build plugin (dist)
+        run: pnpm run build
+
+      - name: Build dev Next app (S3 target)
+        run: pnpm run build:dev
+
+      - name: Run Playwright E2E (S3 / MinIO roundtrip)
+        run: pnpm exec playwright test tests/e2e/backup-create-restore-s3.spec.ts
+
+      - name: Upload Playwright report (S3)
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-s3
+          path: playwright-report/
+          retention-days: 14

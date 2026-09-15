@@ -2,7 +2,7 @@ import type { Payload } from 'payload'
 
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
-export type BackupTaskKind = 'backup' | 'blobTransfer' | 'delete' | 'restore' | 'seed'
+export type BackupTaskKind = 'backup' | 'blobTransfer' | 'delete' | 'restore'
 export type BackupTaskStatus = 'completed' | 'failed' | 'queued' | 'running'
 
 export type BackupTaskProgress = {
