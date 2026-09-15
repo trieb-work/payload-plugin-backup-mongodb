@@ -166,7 +166,11 @@ describe('POST /backup-mongodb/admin/restore', () => {
 
   it('does not pass backupRead when BACKUP_STORAGE=s3 even if a blob token exists', async () => {
     const prevStorage = process.env.BACKUP_STORAGE
+    const prevBucket = process.env.BACKUP_S3_BUCKET
+    const prevRegion = process.env.BACKUP_S3_REGION
     process.env.BACKUP_STORAGE = 's3'
+    process.env.BACKUP_S3_BUCKET = 'test-bucket'
+    process.env.BACKUP_S3_REGION = 'us-east-1'
     process.env.BLOB_READ_WRITE_TOKEN = 'leftover-blob-token'
     try {
       const ep = createAdminRestoreEndpoint({})
@@ -180,14 +184,25 @@ describe('POST /backup-mongodb/admin/restore', () => {
         }),
       )
       const options = vi.mocked(restoreBackup).mock.calls.at(-1)?.[5] as
-        | { backupRead?: unknown }
+        | { archivePathname?: string; backupRead?: unknown }
         | undefined
       expect(options?.backupRead).toBeUndefined()
+      expect(options?.archivePathname).toBe('backups/manual---db---host---1.json')
     } finally {
       if (prevStorage === undefined) {
         delete process.env.BACKUP_STORAGE
       } else {
         process.env.BACKUP_STORAGE = prevStorage
+      }
+      if (prevBucket === undefined) {
+        delete process.env.BACKUP_S3_BUCKET
+      } else {
+        process.env.BACKUP_S3_BUCKET = prevBucket
+      }
+      if (prevRegion === undefined) {
+        delete process.env.BACKUP_S3_REGION
+      } else {
+        process.env.BACKUP_S3_REGION = prevRegion
       }
     }
   })

@@ -56,6 +56,9 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
         return jsonError('Missing pathname (required for dedicated backup blob store)', 400)
       }
 
+      const archivePathname =
+        typeof pathname === 'string' && pathname.startsWith('backups/') ? pathname : undefined
+
       const { pollSecret, taskId } = await createBackupTask(payload, 'restore', 'Restore queued')
 
       payload.logger.info({ taskId, url }, '[backup-endpoint] Restore queued')
@@ -65,6 +68,7 @@ export function createAdminRestoreEndpoint(options: BackupPluginOptions): Endpoi
 
       after(
         restoreBackup(payload, url, collectionBlacklist, false, taskId, {
+          archivePathname,
           backupRead: backupRead ?? undefined,
           blobAccess,
           blobToken,

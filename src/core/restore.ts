@@ -4,15 +4,14 @@ import { EJSON } from 'bson'
 
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import {
-  type BackupBlobAccessLevel,
-  putBackupBlobContent,
-  readBackupBlobContentFlexible,
-} from './backupBlobIO'
+import { readBackupArchiveBytes } from './backupArchiveRead'
+import { type BackupBlobAccessLevel, putBackupBlobContent } from './backupBlobIO'
 import { getDb } from './db'
 import { updateBackupTask } from './taskProgress'
 
 export interface RestoreBackupOptions {
+  /** When set with S3, the archive is read server-side and list URLs may be stale. */
+  archivePathname?: string
   /**
    * When set, the archive is loaded with the backup token (fetch + SDK fallback; works for
    * public and private blobs). Otherwise `downloadUrl` is fetched anonymously.
@@ -45,6 +44,7 @@ export async function restoreBackup(
   const blobToken = options?.blobToken
   const blobAccess: BackupBlobAccessLevel = options?.blobAccess ?? 'public'
   const backupRead = options?.backupRead
+  const archivePathname = options?.archivePathname
   const t0 = Date.now()
   const urlBase = downloadUrl.split('?')?.[0]
 
@@ -67,16 +67,12 @@ export async function restoreBackup(
   }
 
   const db = getDb(payload)
-  const archiveBytes =
-    backupRead ?
-      await readBackupBlobContentFlexible(backupRead.pathname, downloadUrl, backupRead.token)
-    : await (async () => {
-        const res = await fetch(downloadUrl)
-        if (!res.ok) {
-          throw new Error(`Failed to download backup (${res.status})`)
-        }
-        return Buffer.from(await res.arrayBuffer())
-      })()
+  const archiveBytes = await readBackupArchiveBytes(downloadUrl, {
+    archivePathname,
+    backupRead,
+    blobAccess,
+    blobToken,
+  })
   let collections: Record<string, Record<string, unknown>[]> = {}
 
   if (urlBase?.endsWith('.json')) {

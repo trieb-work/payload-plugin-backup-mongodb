@@ -93,7 +93,7 @@ describe.skipIf(!LIVE)('backup core flow against live MinIO (no @vercel/blob)', 
     restoreS3Env(savedEnv)
   })
 
-  it('createBackup uploads to MinIO, listBackups finds it, restoreBackup reads presigned URL', async () => {
+  it('createBackup uploads to MinIO, listBackups finds it, restoreBackup reads via pathname', async () => {
     await createBackup(mockPayload, {
       cron: false,
       includeMedia: false,
@@ -104,11 +104,19 @@ describe.skipIf(!LIVE)('backup core flow against live MinIO (no @vercel/blob)', 
     const created = backups.find((b) => b.pathname.includes(encodeURIComponent('minio-live')))
     expect(created, 'expected a backup with label minio-live').toBeTruthy()
 
-    await restoreBackup(mockPayload, created!.downloadUrl, ['users'], false, undefined, {
-      blobAccess: 'public',
-      blobToken: undefined,
-      restoreArchiveMedia: false,
-    })
+    await restoreBackup(
+      mockPayload,
+      'https://expired.example/stale-signature',
+      ['users'],
+      false,
+      undefined,
+      {
+        archivePathname: created!.pathname,
+        blobAccess: 'public',
+        blobToken: undefined,
+        restoreArchiveMedia: false,
+      },
+    )
 
     expect(mockDb.collection).toHaveBeenCalledWith('pages')
 

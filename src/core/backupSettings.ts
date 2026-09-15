@@ -118,7 +118,7 @@ export function resolveBackupArchiveRead(
   settings: ResolvedCronBackupSettings,
   pathname: unknown,
 ): { pathname: string; token: string } | undefined {
-  // Vercel-specific authenticated archive reads — S3 restores use presigned download URLs instead.
+  // Vercel-specific authenticated archive reads — S3 restores load archives via pathname server-side.
   if (getBackupStorageKind() !== 'vercel-blob') {
     return undefined
   }

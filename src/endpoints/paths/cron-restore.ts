@@ -42,8 +42,12 @@ export function createCronRestoreEndpoint(): Endpoint {
         })
       }
 
+      const archivePathname =
+        typeof pathname === 'string' && pathname.startsWith('backups/') ? pathname : undefined
+
       payload.logger.info({ url }, '[backup-endpoint] Restore request accepted')
       await restoreBackup(payload, url, [], false, undefined, {
+        archivePathname,
         backupRead: backupRead ?? undefined,
         blobAccess,
         blobToken,
