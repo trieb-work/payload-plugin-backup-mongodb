@@ -1,5 +1,5 @@
-# Same pattern as payblocks: require a new .changeset/*.md for PRs to main, unless
-# the PR is labelled `no-changeset` (docs-only, chore, etc.).
+# Require a new .changeset/*.md for PRs to main, unless the PR is labelled
+# `no-changeset` (docs-only, chore, etc.).
 
 name: Validate Changeset
 
