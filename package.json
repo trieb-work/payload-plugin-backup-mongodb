@@ -82,7 +82,7 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"dev/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" \"dev/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" --fix",
     "playwright:install": "playwright install chromium",
-    "prepare": "pnpm build && husky",
+    "prepare": "husky",
     "release": "pnpm run build && changeset publish",
     "start:dev": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_CONFIG_PATH=./dev/payload.config.ts next start dev -p 3000",
     "test": "pnpm test:int && pnpm test:e2e",
