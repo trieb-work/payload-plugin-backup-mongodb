@@ -66,6 +66,7 @@ originated at
 
 ## Requirements
 
+- **Node.js 20.9+** (Node 18 is no longer supported).
 - Payload **v3+** (same major as your other `@payloadcms/*` packages).
 - MongoDB with Payload’s mongoose adapter (`@payloadcms/db-mongodb`).
 - MongoDB server (any version supported by that adapter).
@@ -74,7 +75,7 @@ originated at
     hosting is **not** required — any Node runtime that can reach Vercel Blob
     works.
   - **S3:** `BACKUP_STORAGE=s3` plus `BACKUP_S3_BUCKET` (and optionally
-    credentials). See
+    credentials). Requires Node 20+ for the optional AWS SDK peer packages. See
     [Choosing a backup target](#choosing-a-backup-target-vercel-blob-or-s3).
 - Next.js **15+** and React **19+** (the usual Payload 3 + App Router stack).
 
@@ -156,8 +157,9 @@ targets. Downloads stream through the plugin's authenticated endpoint, so the
 bucket does **not** need to be public.
 
 > **Note on media:** the "include media" option bundles files from your Payload
-> upload store. The configurable target above governs where backup **archives**
-> live; media is read from / restored to your existing upload store as before.
+> **Vercel Blob upload store** (`BLOB_READ_WRITE_TOKEN`). The configurable
+> target above governs where backup **archives** live only; media is always read
+> from and restored to the upload store, even when `BACKUP_STORAGE=s3`.
 
 ---
 
@@ -414,6 +416,13 @@ To keep backups in a **different** Vercel Blob project than media (when
 dedicated `BLOB_READ_WRITE_TOKEN`, validate, and optionally migrate existing
 `backups/*` objects to the new store before switching. For S3, the target is
 controlled entirely by environment variables.
+
+### Removed demo seed API (intentional)
+
+Earlier releases exposed an optional demo seed route (`seedDemoDumpUrl`,
+`/backup-mongodb/admin/seed`, and the `restoreSeedMedia` export). That was
+removed on purpose: a backup plugin should not ship a public “seed my database”
+API. Use your own migration/seed tooling instead.
 
 ---
 

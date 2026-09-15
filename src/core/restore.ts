@@ -2,13 +2,14 @@ import type { Payload } from 'payload'
 
 import { EJSON } from 'bson'
 
-import type { BackupStorageAdapter } from './storage/types'
-
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import { type BackupBlobAccessLevel, readBackupBlobContentFlexible } from './backupBlobIO'
+import {
+  type BackupBlobAccessLevel,
+  putBackupBlobContent,
+  readBackupBlobContentFlexible,
+} from './backupBlobIO'
 import { getDb } from './db'
-import { resolveBackupStorage } from './storage'
 import { updateBackupTask } from './taskProgress'
 
 export interface RestoreBackupOptions {
@@ -30,11 +31,6 @@ export interface RestoreBackupOptions {
    * collections still restore). Default true.
    */
   restoreArchiveMedia?: boolean
-  /**
-   * Storage adapter for media file operations. When omitted, a default adapter is resolved
-   * from `blobAccess`/`blobToken`.
-   */
-  storage?: BackupStorageAdapter
 }
 
 export async function restoreBackup(
@@ -49,7 +45,6 @@ export async function restoreBackup(
   const blobToken = options?.blobToken
   const blobAccess: BackupBlobAccessLevel = options?.blobAccess ?? 'public'
   const backupRead = options?.backupRead
-  const storage = options?.storage ?? resolveBackupStorage({ blobAccess, blobToken })
   const t0 = Date.now()
   const urlBase = downloadUrl.split('?')?.[0]
 
@@ -120,25 +115,25 @@ export async function restoreBackup(
       })
     }
     const mediaResults = await Promise.all(
-      medias.map(async (media) => {
-        try {
-          await storage.put(media.name, media.content)
-          return { name: media.name, ok: true }
-        } catch (err) {
-          payload.logger.error({ name: media.name, err }, '[restore] Failed to upload media file')
-          return { name: media.name, ok: false }
-        }
-      }),
+      medias.map((media) =>
+        putBackupBlobContent(media.name, media.content, blobToken, blobAccess).then(
+          (effectiveAccess) => ({ name: media.name, effectiveAccess }),
+        ),
+      ),
     )
-    const failed = mediaResults.filter((r) => !r.ok)
-    if (failed.length > 0) {
-      payload.logger.warn({ count: failed.length }, '[restore] Some media files failed to upload')
+    const mismatched = mediaResults.filter((r) => r.effectiveAccess !== blobAccess)
+    if (mismatched.length > 0) {
+      payload.logger.warn(
+        { count: mismatched.length, preferredAccess: blobAccess },
+        '[restore] Blob store rejected preferred access level for media; uploaded with fallback',
+      )
     }
-    mediaResults
-      .filter((r) => r.ok)
-      .forEach((result) => {
-        payload.logger.debug({ name: result.name }, '[restore] Media file uploaded')
-      })
+    mediaResults.forEach((result) => {
+      payload.logger.debug(
+        { name: result.name, access: result.effectiveAccess },
+        '[restore] Media file uploaded',
+      )
+    })
   } else {
     throw new Error(`File type of backup ${downloadUrl} not supported`)
   }

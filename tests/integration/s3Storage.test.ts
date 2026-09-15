@@ -96,6 +96,22 @@ describe('S3BackupStorage', () => {
     })
   })
 
+  it('presigns all objects on a list page in parallel', async () => {
+    sendMock.mockResolvedValueOnce({
+      Contents: [
+        { Key: 'backups/a.json', LastModified: new Date(), Size: 1 },
+        { Key: 'backups/b.json', LastModified: new Date(), Size: 2 },
+        { Key: 'backups/c.json', LastModified: new Date(), Size: 3 },
+      ],
+      IsTruncated: false,
+    })
+
+    const storage = new S3BackupStorage(baseConfig)
+    await storage.list('backups/')
+
+    expect(getSignedUrlMock).toHaveBeenCalledTimes(3)
+  })
+
   it('paginates list results across continuation tokens', async () => {
     sendMock
       .mockResolvedValueOnce({

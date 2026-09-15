@@ -9,6 +9,7 @@ import {
 } from '../../core/backupSettings'
 import { getBackupSourcePreviewForManual } from '../../core/backupSourcePreview'
 import { getRestorePreviewForAdminRestore } from '../../core/restorePreview'
+import { getBackupStorageKind } from '../../core/storage'
 import { jsonError, readRequestJson, requireBackupAdmin } from '../shared'
 
 /**
@@ -67,7 +68,11 @@ export function createAdminPreviewEndpoints(options: BackupPluginOptions): Endpo
 
         const settings = await getResolvedCronBackupSettings(payload)
         const backupRead = resolveBackupArchiveRead(settings, body?.pathname)
-        if (resolveBackupBlobAccess(settings) === 'private' && !backupRead) {
+        if (
+          getBackupStorageKind() === 'vercel-blob' &&
+          resolveBackupBlobAccess(settings) === 'private' &&
+          !backupRead
+        ) {
           return jsonError('Missing pathname (required for dedicated backup blob store)', 400)
         }
 

@@ -163,4 +163,32 @@ describe('POST /backup-mongodb/admin/restore', () => {
     expect(blacklist.filter((n) => n === 'backup-tasks')).toHaveLength(1)
     expect(blacklist).toContain('users')
   })
+
+  it('does not pass backupRead when BACKUP_STORAGE=s3 even if a blob token exists', async () => {
+    const prevStorage = process.env.BACKUP_STORAGE
+    process.env.BACKUP_STORAGE = 's3'
+    process.env.BLOB_READ_WRITE_TOKEN = 'leftover-blob-token'
+    try {
+      const ep = createAdminRestoreEndpoint({})
+      await ep.handler(
+        makeMockRequest(makeMockPayload(), {
+          body: {
+            pathname: 'backups/manual---db---host---1.json',
+            url: 'https://minio.example/backups/manual.json',
+          },
+          user: adminUser,
+        }),
+      )
+      const options = vi.mocked(restoreBackup).mock.calls.at(-1)?.[5] as
+        | { backupRead?: unknown }
+        | undefined
+      expect(options?.backupRead).toBeUndefined()
+    } finally {
+      if (prevStorage === undefined) {
+        delete process.env.BACKUP_STORAGE
+      } else {
+        process.env.BACKUP_STORAGE = prevStorage
+      }
+    }
+  })
 })

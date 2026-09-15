@@ -58,6 +58,10 @@ vi.mock('@aws-sdk/lib-storage', () => ({
   }),
 }))
 
+vi.mock('../../src/core/backupBlobIO.js', () => ({
+  readBackupBlobContentFlexible: vi.fn(async () => Buffer.from('media-bytes')),
+}))
+
 vi.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: vi.fn().mockResolvedValue('https://signed.example/object'),
 }))
@@ -77,7 +81,7 @@ const mockPayload = {
   logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 } as any
 
-describe('S3 independence — no Vercel blob calls when BACKUP_STORAGE=s3', () => {
+describe('S3 backup target — archives independent of Vercel Blob', () => {
   let savedEnv: Record<string, string | undefined>
 
   beforeEach(() => {
@@ -134,15 +138,32 @@ describe('S3 independence — no Vercel blob calls when BACKUP_STORAGE=s3', () =
     expect(vercelBlobCalls).toBe(0)
   })
 
-  it('createMediaBackupFile does not invoke @vercel/blob when given an S3 adapter', async () => {
+  it('createMediaBackupFile still reads media via @vercel/blob when BACKUP_STORAGE=s3', async () => {
     const { createMediaBackupFile } = await import('../../src/core/backup.js')
-    const storage = resolveBackupStorage()
-    storage.list = vi.fn().mockResolvedValue([])
-    storage.read = vi.fn().mockResolvedValue(Buffer.from('fake'))
+    const { list } = await import('@vercel/blob')
+    const { readBackupBlobContentFlexible } = await import('../../src/core/backupBlobIO.js')
 
-    const result = await createMediaBackupFile('{"pages":[]}', [], storage)
+    vi.mocked(list).mockResolvedValueOnce({
+      blobs: [
+        {
+          downloadUrl: 'https://blob.example/media.png',
+          etag: '"media"',
+          pathname: 'media.png',
+          size: 1,
+          uploadedAt: new Date(),
+          url: 'https://blob.example/media.png',
+        },
+      ],
+      cursor: undefined,
+      hasMore: false,
+    })
+
+    process.env.BLOB_READ_WRITE_TOKEN = 'media-token'
+    const result = await createMediaBackupFile('{"pages":[]}', [{ filename: 'media.png' }])
+
     expect(result).toBeInstanceOf(Buffer)
-    expect(vercelBlobCalls).toBe(0)
+    expect(list).toHaveBeenCalledOnce()
+    expect(readBackupBlobContentFlexible).toHaveBeenCalledOnce()
   })
 
   it('settings endpoint skips Vercel blob validation when BACKUP_STORAGE=s3', async () => {
@@ -189,8 +210,6 @@ describe('S3 independence — no Vercel blob calls when BACKUP_STORAGE=s3', () =
     const res = await patch.handler(req)
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
-    // When S3 is active, Vercel token validation is skipped so the settings
-    // save succeeds even though the token would be rejected by Vercel.
     expect(body.error).toBeUndefined()
     expect(body.id).toBe('settings-1')
   })

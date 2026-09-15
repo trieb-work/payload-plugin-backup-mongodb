@@ -1,8 +1,7 @@
 import type { Payload } from 'payload'
 
+import { list } from '@vercel/blob'
 import { EJSON } from 'bson'
-
-import type { BackupStorageAdapter } from './storage/types'
 
 import {
   createBlobName,
@@ -11,7 +10,7 @@ import {
   sanitizeBackupLabel,
 } from '../utils/index'
 import { createTarGzip } from './archive'
-import { type BackupBlobAccessLevel } from './backupBlobIO'
+import { type BackupBlobAccessLevel, readBackupBlobContentFlexible } from './backupBlobIO'
 import { getResolvedCronBackupSettings, resolveBackupBlobToken } from './backupSettings'
 import { getDb } from './db'
 import { getBackupStorageKind, resolveBackupStorage } from './storage'
@@ -64,21 +63,27 @@ function resolveBlobToken(blobToken?: string): string | undefined {
 }
 
 /**
- * Builds a tar.gz archive containing the collection dump plus any media files retrieved
- * through the given storage adapter. The adapter abstracts Vercel Blob vs S3 so this
- * function stays target-agnostic.
+ * Builds a tar.gz archive containing the collection dump plus Payload upload-store media files.
+ * Media always comes from the Vercel Blob upload store (via token/env), independent of the
+ * configured backup archive target (S3 vs Vercel Blob).
  */
 export async function createMediaBackupFile(
   collectionBackupFile: string,
   mediaCollection: { filename: string }[],
-  storage: BackupStorageAdapter,
+  backupBlobToken?: string,
+  mediaListToken?: string,
   payload?: Payload,
 ): Promise<Buffer> {
+  const envMedia = (process.env.BLOB_READ_WRITE_TOKEN || '').trim()
+  const tokenForMedia =
+    resolveBlobToken(mediaListToken) ??
+    (envMedia.length > 0 ? envMedia : undefined) ??
+    resolveBlobToken(backupBlobToken)
   const mediaFiles = await Promise.all(
     mediaCollection.map(async (media) => {
       try {
-        const matchingFiles = await storage.list(media.filename)
-        const blob = matchingFiles.find((blob) => blob.pathname === media.filename)
+        const matchingFiles = await list({ limit: 2, prefix: media.filename, token: tokenForMedia })
+        const blob = matchingFiles.blobs.find((blob) => blob.pathname === media.filename)
         if (!blob) {
           payload?.logger.warn(
             { filename: media.filename },
@@ -86,16 +91,16 @@ export async function createMediaBackupFile(
           )
           return undefined
         }
-        const content = await storage.read({
-          downloadUrl: blob.downloadUrl,
-          pathname: blob.pathname,
-          url: blob.url,
-        })
+        const content = await readBackupBlobContentFlexible(
+          blob.pathname,
+          blob.downloadUrl,
+          tokenForMedia ?? '',
+        )
         return { name: media.filename, content }
       } catch (err) {
         payload?.logger.warn(
           { err, filename: media.filename },
-          '[backup] Failed to read media file from storage',
+          '[backup] Failed to read media file from blob storage',
         )
         return undefined
       }
@@ -236,7 +241,8 @@ export async function createBackup(
       await createMediaBackupFile(
         collectionBackupFile,
         (allData?.['media'] as { filename: string }[] | undefined) || [],
-        storage,
+        token,
+        undefined,
         payload,
       )
     : collectionBackupFile

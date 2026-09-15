@@ -11,6 +11,14 @@ import type {
 /** Presigned download URLs are valid this long — long enough to start a restore/download. */
 const SIGNED_URL_TTL_SECONDS = 3600
 
+type S3PresignerModule = {
+  getSignedUrl: (
+    client: S3Client,
+    command: unknown,
+    options: { expiresIn: number },
+  ) => Promise<string>
+}
+
 function contentTypeFor(pathname: string): string {
   if (pathname.endsWith('.json')) {
     return 'application/json'
@@ -30,6 +38,7 @@ export class S3BackupStorage implements BackupStorageAdapter {
   private readonly cfg: BackupS3Config
 
   private clientPromise: null | Promise<S3Client> = null
+  private presignerPromise: null | Promise<S3PresignerModule> = null
   readonly kind = 's3'
 
   constructor(cfg: BackupS3Config) {
@@ -67,9 +76,16 @@ export class S3BackupStorage implements BackupStorageAdapter {
     return key.startsWith(lead) ? key.slice(lead.length) : key
   }
 
+  private async presigner() {
+    if (!this.presignerPromise) {
+      this.presignerPromise = import('@aws-sdk/s3-request-presigner')
+    }
+    return this.presignerPromise
+  }
+
   private async presignGet(key: string): Promise<string> {
     const { GetObjectCommand } = await this.sdk()
-    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner')
+    const { getSignedUrl } = await this.presigner()
     const client = await this.client()
     return getSignedUrl(client, new GetObjectCommand({ Bucket: this.cfg.bucket, Key: key }), {
       expiresIn: SIGNED_URL_TTL_SECONDS,
@@ -115,20 +131,36 @@ export class S3BackupStorage implements BackupStorageAdapter {
           Prefix: keyPrefix,
         }),
       )
+      const pageEntries: Array<{
+        key: string
+        pathname: string
+        size: number
+        uploadedAt: Date
+      }> = []
       for (const obj of res.Contents ?? []) {
         if (!obj.Key) {
           continue
         }
-        const pathname = this.fromKey(obj.Key)
-        const url = await this.presignGet(obj.Key)
-        objects.push({
-          downloadUrl: url,
-          pathname,
+        pageEntries.push({
+          key: obj.Key,
+          pathname: this.fromKey(obj.Key),
           size: obj.Size ?? 0,
           uploadedAt: obj.LastModified ?? new Date(0),
-          url,
         })
       }
+      const signed = await Promise.all(
+        pageEntries.map(async (entry) => {
+          const url = await this.presignGet(entry.key)
+          return {
+            downloadUrl: url,
+            pathname: entry.pathname,
+            size: entry.size,
+            uploadedAt: entry.uploadedAt,
+            url,
+          }
+        }),
+      )
+      objects.push(...signed)
       continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined
     } while (continuationToken)
 
