@@ -110,13 +110,27 @@ export async function restoreBackup(
           : 'Skipped media files from archive',
       })
     }
-    const mediaResults = await Promise.all(
-      medias.map((media) =>
-        putBackupBlobContent(media.name, media.content, blobToken, blobAccess).then(
-          (effectiveAccess) => ({ name: media.name, effectiveAccess }),
-        ),
-      ),
-    )
+    const mediaResults = (
+      await Promise.all(
+        medias.map(async (media) => {
+          try {
+            const effectiveAccess = await putBackupBlobContent(
+              media.name,
+              media.content,
+              blobToken,
+              blobAccess,
+            )
+            return { name: media.name, effectiveAccess }
+          } catch (err) {
+            payload.logger.warn(
+              { err, filename: media.name },
+              '[restore] Failed to upload media file to blob storage',
+            )
+            return undefined
+          }
+        }),
+      )
+    ).filter(Boolean) as { effectiveAccess: BackupBlobAccessLevel; name: string }[]
     const mismatched = mediaResults.filter((r) => r.effectiveAccess !== blobAccess)
     if (mismatched.length > 0) {
       payload.logger.warn(
