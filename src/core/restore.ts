@@ -4,7 +4,7 @@ import { EJSON } from 'bson'
 
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import { readBackupArchiveBytes } from './backupArchiveRead'
+import { readBackupArchiveBytes, resolveArchiveFileReference } from './backupArchiveRead'
 import { type BackupBlobAccessLevel, putBackupBlobContent } from './backupBlobIO'
 import { getDb } from './db'
 import { updateBackupTask } from './taskProgress'
@@ -46,7 +46,7 @@ export async function restoreBackup(
   const backupRead = options?.backupRead
   const archivePathname = options?.archivePathname
   const t0 = Date.now()
-  const urlBase = downloadUrl.split('?')?.[0]
+  const archiveRef = resolveArchiveFileReference(downloadUrl, archivePathname)
 
   // Progress is stored in `backup-tasks`. Restoring that collection from the file
   // would delete/replace the active task doc and break GET .../admin/task/:id polling.
@@ -56,7 +56,7 @@ export async function restoreBackup(
     : [...collectionBlacklist]
 
   payload.logger.info(
-    { blacklist: effectiveBlacklist, mergeData, url: urlBase },
+    { blacklist: effectiveBlacklist, mergeData, url: archiveRef },
     '[restore] Starting restore',
   )
   if (taskId) {
@@ -75,7 +75,7 @@ export async function restoreBackup(
   })
   let collections: Record<string, Record<string, unknown>[]> = {}
 
-  if (urlBase?.endsWith('.json')) {
+  if (archiveRef.endsWith('.json')) {
     payload.logger.info('[restore] Parsing JSON backup')
     if (taskId) {
       await updateBackupTask(payload, taskId, {
@@ -83,7 +83,7 @@ export async function restoreBackup(
       })
     }
     collections = EJSON.parse(archiveBytes.toString('utf8'))
-  } else if (urlBase?.endsWith('.gz')) {
+  } else if (archiveRef.endsWith('.gz')) {
     payload.logger.info('[restore] Extracting tar.gz backup')
     if (taskId) {
       await updateBackupTask(payload, taskId, {

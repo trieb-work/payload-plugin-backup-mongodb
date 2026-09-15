@@ -9,10 +9,15 @@ export interface ReadBackupArchiveBytesOptions {
   blobToken?: string
 }
 
-/**
- * Loads a backup archive into memory. Vercel private blobs use token-backed reads; S3 uses the
- * storage adapter via `archivePathname` so restore/preview do not depend on expiring list URLs.
- */
+/** Prefer `archivePathname` for file-type detection when the download URL may be stale or opaque. */
+export function resolveArchiveFileReference(downloadUrl: string, archivePathname?: string): string {
+  if (typeof archivePathname === 'string' && archivePathname.startsWith('backups/')) {
+    return archivePathname
+  }
+  return downloadUrl.split('?')[0] ?? downloadUrl
+}
+
+/** Loads a backup archive into memory (Vercel token read or S3 pathname read, else fetch). */
 export async function readBackupArchiveBytes(
   downloadUrl: string,
   options: ReadBackupArchiveBytesOptions = {},

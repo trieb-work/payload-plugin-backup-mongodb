@@ -4,7 +4,7 @@ import { EJSON } from 'bson'
 
 import { resolveTarGzip } from './archive'
 import { COLLECTION_FILE_NAME } from './backup'
-import { readBackupArchiveBytes } from './backupArchiveRead'
+import { readBackupArchiveBytes, resolveArchiveFileReference } from './backupArchiveRead'
 import { type BackupBlobAccessLevel } from './backupBlobIO'
 
 /** Mongo collection names that invalidate the current admin session when replaced. */
@@ -159,7 +159,7 @@ export async function loadRestoreBackupIndex(
   fileKind: RestorePreviewFileKind
   mediaBlobCount: number
 }> {
-  const urlBase = downloadUrl.split('?')?.[0]
+  const archiveRef = resolveArchiveFileReference(downloadUrl, options.archivePathname)
   const bytes = await readBackupArchiveBytes(downloadUrl, {
     archivePathname: options.archivePathname,
     backupRead: options.readAuth,
@@ -171,10 +171,10 @@ export async function loadRestoreBackupIndex(
   let mediaBlobCount = 0
   let fileKind: RestorePreviewFileKind
 
-  if (urlBase?.endsWith('.json')) {
+  if (archiveRef.endsWith('.json')) {
     fileKind = 'json'
     byName = EJSON.parse(bytes.toString('utf8')) as Record<string, unknown[]>
-  } else if (urlBase?.endsWith('.gz')) {
+  } else if (archiveRef.endsWith('.gz')) {
     fileKind = 'tar-gzip'
     const files = await resolveTarGzip(bytes)
     byName = EJSON.parse(

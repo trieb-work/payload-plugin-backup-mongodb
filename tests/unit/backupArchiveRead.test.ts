@@ -12,7 +12,21 @@ vi.mock('../../src/core/storage/index.js', () => ({
   })),
 }))
 
-import { readBackupArchiveBytes } from '../../src/core/backupArchiveRead.js'
+import {
+  readBackupArchiveBytes,
+  resolveArchiveFileReference,
+} from '../../src/core/backupArchiveRead.js'
+
+describe('resolveArchiveFileReference', () => {
+  it('prefers archivePathname over downloadUrl for file-type detection', () => {
+    expect(
+      resolveArchiveFileReference(
+        'https://expired.example/stale-signature',
+        'backups/manual---db---host---1.json',
+      ),
+    ).toBe('backups/manual---db---host---1.json')
+  })
+})
 
 describe('readBackupArchiveBytes', () => {
   beforeEach(() => {
